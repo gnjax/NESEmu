@@ -21,5 +21,5 @@ char*	Nes::getCpuMemory() {
 }
 
 char	Nes::getResetAddress() {
-	return ((this->ram[0xFFFC] << 8) | this->ram[0xFFFD]);
+	return ((this->ram[0xFFFD] << 8) | this->ram[0xFFFC]);
 }
