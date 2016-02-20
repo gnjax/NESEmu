@@ -10,5 +10,6 @@ class Cpu {
 public:
 	Cpu();
 	~Cpu();
+	void	setProgramCounter(char address);
 };
 

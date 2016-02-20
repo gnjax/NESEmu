@@ -2,10 +2,13 @@
 #include <string.h>
 
 class Nes {
-	char*	memory;
+	char*	ram;
+	char*	vram;
 public:
 	Nes();
 	~Nes();
-	char*	getMemory();
+	char*	getCpuMemory();
+	char	getResetAddress();
+	char*	getPpuMemory();
 };
 
