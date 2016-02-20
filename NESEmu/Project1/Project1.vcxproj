@@ -120,14 +120,18 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Cpu.cpp" />
     <ClCompile Include="Error.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Nes.cpp" />
+    <ClCompile Include="Ppu.cpp" />
     <ClCompile Include="Rom.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Cpu.h" />
     <ClInclude Include="Error.h" />
     <ClInclude Include="Nes.h" />
+    <ClInclude Include="Ppu.h" />
     <ClInclude Include="Rom.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
