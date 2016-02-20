@@ -6,7 +6,7 @@ Rom::Rom() : magic{0x4e,0x45,0x53,0x1a} {
 
 Rom::~Rom() {
 	if (this->rom != nullptr)
-		free(this->rom);
+		delete this->rom;
 }
 
 /*
@@ -130,5 +130,6 @@ bool	Rom::initialize(std::string s) {
 **	None
 */
 void	Rom::loadIntoMemory(char *memory) {
-
+	memcpy(memory + 0x8000, this->rom + PGR_OFFSET, PGR_SIZE);
+	memcpy(memory + 0xC000, this->rom + PGR_OFFSET + ((this->chrPage > 1) ? (PGR_SIZE) : (0)), PGR_SIZE);
 }
