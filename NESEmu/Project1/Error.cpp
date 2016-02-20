@@ -1,0 +1,23 @@
+#include "Error.h"
+
+Error*	Error::instance = nullptr;
+
+Error::Error() {
+
+}
+
+Error::~Error() {
+
+}
+
+Error* Error::getInstance()
+{
+	if (instance == nullptr)
+		instance = new Error();
+		return instance;
+}
+
+void Error::queue(std::string s)
+{
+	this->errors.push(s);
+}
