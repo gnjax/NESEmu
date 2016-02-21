@@ -3,8 +3,8 @@
 Nes::Nes() {
 	this->ram = new char[0x10000]();
 	memset(this->ram, 0, 0x10000);
-	this->vram = new char[0x4000]();
-	memset(this->vram, 0, 0x4000);
+	this->vram = new char[0x8000]();
+	memset(this->vram, 0, 0x8000);
 }
 
 Nes::~Nes() {
