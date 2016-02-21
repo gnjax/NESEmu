@@ -13,6 +13,7 @@
 
 class Cpu {
 	Nes*		nes;
+	unsigned char*	ram;
 	char		A;
 	char		X;
 	char		Y;
@@ -21,10 +22,13 @@ class Cpu {
 	uint16_t	PC;
 
 	uint16_t	getValue(uint16_t addr);
+	void		ZNV_FlagHandler(char ans, char val);
+	void		ZN_FlagHandler(char ans, char val);
 public:
 	Cpu(Nes* nes);
 	~Cpu();
 	void		setProgramCounter(char address);
+	void		PpuRegisterObserver(uint16_t addr);
 	void		loop(char* memory);
 };
 
