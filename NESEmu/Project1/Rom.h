@@ -21,10 +21,11 @@ class Rom {
 public:
 	Rom();
 	~Rom();
+	bool		getMirroring();
 	bool		checkFile(std::string & s);
 	bool		loadFile(std::string & s);
 	bool		checkHeaders();
 	bool		initialize(std::string);
-	void loadIntoMemory(char * memory);
+	void		loadIntoMemory(char*, char*);
 };
 
