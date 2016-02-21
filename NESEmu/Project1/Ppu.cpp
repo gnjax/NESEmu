@@ -12,10 +12,8 @@ Ppu::Ppu(char* vram, char* ram, bool mirroring) {
 			this->mirrors[i] = i - 0x2C00 + 0x2400;
 		else if (i < IPINDEX)	//Mirroring of 0x2000 to 0x2EFF (why ?)
 			this->mirrors[i] = 0x2000 + i - 0x3000;
-		else if (i < SPINDEX)	//Mirroring Image Palette to Sprite Palette
-			this->mirrors[i] = i + 0x10;
-		else if (i < SPINDEX + PSIZE)	//No mirroring here
-			this->mirrors[i] = i;
+		else if (i < SPINDEX + PSIZE)	//Mirroring every 4 bytes to the universal background color (transparent) located at IPINDEX
+			this->mirrors[i] = (((i % 0x4) == 0) ? (IPINDEX) : (i));
 		else if (i < 0x4000)	//Mirroring of both Image and Sprite Palette
 			this->mirrors[i] = ((i - 0x3F20) % 0x10) + 0x3F10;
 		else                    //Mirroring of 0x0000 to 0x4000
@@ -27,6 +25,9 @@ Ppu::Ppu(char* vram, char* ram, bool mirroring) {
 	this->screenMatrix = new char[HRESOLUTION * VRESOLUTION]();
 	this->actualPixel = 0;
 	this->actualScanline = 0;
+	this->evenFrame = true;
+	this->nameTableOffset = 0;
+	this->attributeTableOffset = 0;
 }
 
 Ppu::~Ppu() {
@@ -97,17 +98,50 @@ inline void		Ppu::OamDmaWrite() {
 	memcpy(this->oam, this->ram + (this->ram[OAMDMA] << 8), 0xFF);
 }
 
+void			Ppu::render(int x, int y) {
+	char		color;
+	char		lowTilecolor;
+	char		highTilecolor;
+	t_tile		tile = this->tilesQueue.front();
+
+	this->tilesQueue.pop();
+	for (int i = 0; i < 8; ++i) {
+		lowTilecolor = (this->vram[tile.lowTile + (y - 1)] >> (7 - i)) & 0b00000001;
+		highTilecolor = (this->vram[tile.highTile + (y - 1)] >> (7 - i)) & 0b00000001;
+		color = lowTilecolor | ((highTilecolor) << 1);
+		color |= (this->vram[tile.attributeTable] >> (int)floor(((this->nameTableOffset - 1) % 0xF) / 4) * 2) << 2;
+		color = this->vram[IPINDEX + color];
+		//this->screenMatrix[(x + i) * y] = ;
+	}
+}
+
 void			Ppu::cycle(int cpuCycle) {
 	for (int i = 0; i < 3; ++i) {
-		if (this->actualScanline == 0) { //Pre-render scanlines
-			;//I HAVE NO IDEA WHAT TO DO HERE
+		if (this->actualScanline == 0) { //Pre-render scanline
+			
 		}
 		else if (this->actualScanline < 241) { //Render the 240 visible scanlines
 			if (this->actualPixel == 0) { // Idle cycle
-				;//STILL NO IDEA WHAT TO DO HERE
+				;//NOTHING TO DO HERE
 			}
 			else if (this->actualPixel < 257) { //Fetching data for each tile
-				;
+				if ((this->actualPixel % 8) == 0) { //Load tile bitmap high + render
+					this->currentTile.highTile = this->currentTile.lowTile += 0x8;
+					this->tilesQueue.push(this->currentTile);
+					this->nameTableOffset++;
+					if ((this->nameTableOffset % 0xF) == 0)
+						this->attributeTableOffset++;
+					this->render(this->actualScanline, this->actualPixel - 8);
+				}
+				else if ((this->actualPixel % 6) == 0) { //Load tile bitmap low
+					this->currentTile.lowTile = (this->vram[this->currentTile.nameTable] * 0xF) + this->getBackgroundPatternTableIndex();
+				}
+				else if ((this->actualPixel % 4) == 0) { //Load attribute table byte
+					this->currentTile.attributeTable = this->getNameTableIndex() + 0x3C0 + this->attributeTableOffset;
+				}
+				else if ((this->actualPixel % 2) == 0) { //Load nametable byte
+					this->currentTile.nameTable = this->getNameTableIndex() + this->nameTableOffset;
+				}
 			}
 			else if (this->actualPixel < 321) { //Fetching data for next scanline sprites
 				;
@@ -116,12 +150,22 @@ void			Ppu::cycle(int cpuCycle) {
 				;
 			}
 		}
-		if (this->actualScanline == 242 && this->actualPixel == 0)
-			this->setVBlank(true);
+		if (this->actualScanline == 242 && this->actualPixel == 0) //VBLANK HIT
+			if (this->getVBlankInterrupt)
+				this->setVBlank(true);
 		this->actualPixel++;
-		if (this->actualPixel == CYCLESPERSCANLINE) {
+		if (this->actualPixel == CYCLESPERSCANLINE) { //End of the scanline
 			this->actualPixel = 0;
 			this->actualScanline++;
+			if (this->actualScanline == 1 && !this->evenFrame) {
+				this->actualPixel = 1; //Skip idle cycle on scanline 1 if odd frame
+			}
+		}
+		if (this->actualScanline == SCANLINES) { //End of the frame
+			this->actualScanline == 0;
+			this->evenFrame = !this->evenFrame;
+			this->nameTableOffset = 0;
+			this->attributeTableOffset = 0;
 		}
 	}
 }

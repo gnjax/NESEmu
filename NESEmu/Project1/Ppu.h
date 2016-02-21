@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <queue>
 #include "Nes.h"
 
 #define		PTSIZE			0x1000
@@ -39,14 +40,26 @@
 // #define	SCANLINES			312
 #define		VRESOLUTION			240
 
+typedef struct s_tile {
+	uint16_t	nameTable;
+	char		attributeTable;
+	char		lowTile;
+	char		highTile;
+} t_tile;
+
 class Ppu {
-	char		*vram;
-	char		*ram;
-	char		*oam;
-	char		*screenMatrix;
-	uint16_t	mirrors[0x8000];
-	int			actualScanline;
-	int			actualPixel;
+	char				*vram;
+	char				*ram;
+	char				*oam;
+	char				*screenMatrix;
+	uint16_t			mirrors[0x8000];
+	int					actualScanline;
+	int					actualPixel;
+	bool				evenFrame;
+	std::queue<t_tile>	tilesQueue;
+	t_tile				currentTile;
+	uint16_t			nameTableOffset;
+	uint16_t			attributeTableOffset;
 public:
 	Ppu(char*, char*, bool);
 	~Ppu();
@@ -63,6 +76,7 @@ public:
 	void		setSpriteHit(bool);
 	void		setVBlank(bool);
 	void		OamDmaWrite();
+	void		render(int x, int y);
 	void		cycle(int);
 };
 
