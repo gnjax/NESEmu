@@ -28,6 +28,9 @@ Ppu::Ppu(char* vram, char* ram, bool mirroring) {
 	this->evenFrame = true;
 	this->nameTableOffset = 0;
 	this->attributeTableOffset = 0;
+	this->writeToggle = false;
+	this->scrollX = 0;
+	this->scrollY = 0;
 }
 
 Ppu::~Ppu() {
@@ -93,6 +96,22 @@ inline void		Ppu::setVBlank(bool vblank) {
 	this->ram[PPUSTATUS] = ((vblank) ? (this->ram[PPUSTATUS] | VBMASK) : (this->ram[PPUSTATUS] & (VBMASK ^ UNSETMASK)));
 }
 
+void			Ppu::getPpuScroll() { //Get the PPUSCROLL register value. 2 successives writes for respectively x and y.
+	if (!this->writeToggle)
+		this->scrollX = this->ram[PPUSCROLL];
+	else
+		this->scrollY = this->ram[PPUSCROLL];
+	this->writeToggle = !this->writeToggle;
+}
+
+void			Ppu::getPpuAddr() { //Get the PPUADDR register vlaue. 2 successives writes for higher and lower bytes of the 2 bytes address.
+	if (!this->writeToggle)
+		this->ppuaddr = this->ram[PPUADDR] << 8;
+	else
+		this->ppuaddr |= this->ram[PPUADDR];
+	this->writeToggle = !this->writeToggle;
+}
+
 //When a CPU write occurs to OAMDMA, takes 256 bytes from CPU memory from $XX00 -> $XXFF to oam memory. Takes 512 cycles
 inline void		Ppu::OamDmaWrite() {
 	memcpy(this->oam, this->ram + (this->ram[OAMDMA] << 8), 0xFF);
@@ -111,44 +130,58 @@ void			Ppu::render(int x, int y) {
 		color = lowTilecolor | ((highTilecolor) << 1);
 		color |= (this->vram[tile.attributeTable] >> (int)floor(((this->nameTableOffset - 1) % 0xF) / 4) * 2) << 2;
 		color = this->vram[IPINDEX + color];
-		//this->screenMatrix[(x + i) * y] = ;
+		this->screenMatrix[(x + i) * y] = color;
+	}
+}
+
+inline void		Ppu::tileFetch() {
+	if ((this->actualPixel % 8) == 0) { //Load tile bitmap high + render
+		this->currentTile.highTile = this->currentTile.lowTile += 0x8;
+		this->tilesQueue.push(this->currentTile);
+		this->nameTableOffset++;
+		if ((this->nameTableOffset % 0xF) == 0)
+			this->attributeTableOffset++;
+		this->render(this->actualScanline, this->actualPixel - 8);
+	}
+	else if ((this->actualPixel % 6) == 0) { //Load tile bitmap low
+		this->currentTile.lowTile = (this->vram[this->currentTile.nameTable] * 0xF) + this->getBackgroundPatternTableIndex();
+	}
+	else if ((this->actualPixel % 4) == 0) { //Load attribute table byte
+		this->currentTile.attributeTable = this->currentTile.nameTable - this->nameTableOffset + 0x3C0 + this->attributeTableOffset;
+	}
+	else if ((this->actualPixel % 2) == 0) { //Load nametable byte
+		this->currentTile.nameTable = this->getNameTableIndex() + this->nameTableOffset;
 	}
 }
 
 void			Ppu::cycle(int cpuCycle) {
 	for (int i = 0; i < 3; ++i) {
 		if (this->actualScanline == 0) { //Pre-render scanline
-			
+			if (this->actualPixel >= 321 && this->actualPixel < 337)
+				this->tileFetch();
 		}
 		else if (this->actualScanline < 241) { //Render the 240 visible scanlines
 			if (this->actualPixel == 0) { // Idle cycle
 				;//NOTHING TO DO HERE
 			}
-			else if (this->actualPixel < 257) { //Fetching data for each tile
-				if ((this->actualPixel % 8) == 0) { //Load tile bitmap high + render
-					this->currentTile.highTile = this->currentTile.lowTile += 0x8;
-					this->tilesQueue.push(this->currentTile);
-					this->nameTableOffset++;
-					if ((this->nameTableOffset % 0xF) == 0)
-						this->attributeTableOffset++;
-					this->render(this->actualScanline, this->actualPixel - 8);
-				}
-				else if ((this->actualPixel % 6) == 0) { //Load tile bitmap low
-					this->currentTile.lowTile = (this->vram[this->currentTile.nameTable] * 0xF) + this->getBackgroundPatternTableIndex();
-				}
-				else if ((this->actualPixel % 4) == 0) { //Load attribute table byte
-					this->currentTile.attributeTable = this->getNameTableIndex() + 0x3C0 + this->attributeTableOffset;
-				}
-				else if ((this->actualPixel % 2) == 0) { //Load nametable byte
-					this->currentTile.nameTable = this->getNameTableIndex() + this->nameTableOffset;
-				}
+			else if (this->actualPixel < 257 - 16/*test*/) { //Fetching data for each tile
+				this->tileFetch();
 			}
 			else if (this->actualPixel < 321) { //Fetching data for next scanline sprites
 				;
 			}
+			else if (this->actualPixel < 337) { //Fetching 2 tiles for the next scanline
+				this->tileFetch();
+			}
 			else if (this->actualPixel < 341) { //Nametable byte fetch
 				;
 			}
+		}
+		if (this->actualPixel == 257 - 15 && this->actualScanline > 1) {
+			if ((this->actualScanline % 8) != 0)
+				this->nameTableOffset -= 32;
+			if ((this->actualScanline % 32) != 0)
+				this->attributeTableOffset -= 8;
 		}
 		if (this->actualScanline == 242 && this->actualPixel == 0) //VBLANK HIT
 			if (this->getVBlankInterrupt)

@@ -60,6 +60,10 @@ class Ppu {
 	t_tile				currentTile;
 	uint16_t			nameTableOffset;
 	uint16_t			attributeTableOffset;
+	bool				writeToggle; //Shared between PPUSCROLL and PPUADDR
+	uint16_t			scrollX;
+	uint16_t			scrollY;
+	uint16_t			ppuaddr;
 public:
 	Ppu(char*, char*, bool);
 	~Ppu();
@@ -75,8 +79,11 @@ public:
 	void		setSpriteOverflow(bool);
 	void		setSpriteHit(bool);
 	void		setVBlank(bool);
+	void		getPpuScroll();
+	void		getPpuAddr();
 	void		OamDmaWrite();
 	void		render(int x, int y);
+	void		tileFetch();
 	void		cycle(int);
 };
 
