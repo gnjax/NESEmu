@@ -26,12 +26,8 @@ Ppu::Ppu(char* vram, char* ram, bool mirroring) {
 	this->actualPixel = 0;
 	this->actualScanline = 0;
 	this->evenFrame = true;
-	this->registers.coarseXScroll = 0;
-	this->registers.coarseYScroll = 0;
 	this->registers.currentAddress = NT0INDEX;
 	this->registers.temporaryAddress = NT0INDEX;
-	this->registers.fineXScroll = 0;
-	this->registers.fineYScroll = 0;
 	this->registers.writeToggle = false;
 }
 
@@ -85,24 +81,24 @@ inline bool		Ppu::getShowSprite() {
 
 //Set Sprite overflow flag. Is set whenever more than 8 sprites by scanline are evaluated. Cleared at dot 1 of pre-render line. Hardware bugged on original NES
 inline void		Ppu::setSpriteOverflow(bool overflow) {
-	this->ram[PPUSTATUS] = ((overflow) ? (this->ram[PPUSTATUS] | SPOMASK) : (this->ram[PPUSTATUS] & (SPOMASK ^ UNSETMASK)));
+	this->ram[PPUSTATUS] = ((overflow) ? (this->ram[PPUSTATUS] | SPOMASK) : (this->ram[PPUSTATUS] & ~SPOMASK));
 }
 
 //Set Sprite Hit flag. Is set whenever a nonzero pixel of sprite 0 overlaps a nonzero background pixel. Cleared at dot 1 of pre-render line.
 inline void		Ppu::setSpriteHit(bool hit) {
-	this->ram[PPUSTATUS] = ((hit) ? (this->ram[PPUSTATUS] | SPHMASK) : (this->ram[PPUSTATUS] & (SPHMASK ^ UNSETMASK)));
+	this->ram[PPUSTATUS] = ((hit) ? (this->ram[PPUSTATUS] | SPHMASK) : (this->ram[PPUSTATUS] & ~SPHMASK));
 }
 
 //Set VBlank flag. Is set when the VBlank starts (dot 1 of line 241, line after the post-render line). Cleared after reading PPUSTATUS and dot 1 of pre-render line.
 inline void		Ppu::setVBlank(bool vblank) {
-	this->ram[PPUSTATUS] = ((vblank) ? (this->ram[PPUSTATUS] | VBMASK) : (this->ram[PPUSTATUS] & (VBMASK ^ UNSETMASK)));
+	this->ram[PPUSTATUS] = ((vblank) ? (this->ram[PPUSTATUS] | VBMASK) : (this->ram[PPUSTATUS] & ~VBMASK));
 }
 
 void			Ppu::getPpuScroll() { //Get the PPUSCROLL register value. 2 successives writes for respectively x and y.
 	if (!this->registers.writeToggle)
-		this->registers.fineXScroll = this->ram[PPUSCROLL];
+		;//this->registers.fineXScroll = this->ram[PPUSCROLL];
 	else
-		this->registers.fineYScroll = this->ram[PPUSCROLL];
+		;//this->registers.fineYScroll = this->ram[PPUSCROLL];
 	this->registers.writeToggle = !this->registers.writeToggle;
 }
 
@@ -119,7 +115,7 @@ inline void		Ppu::OamDmaWrite() {
 	memcpy(this->oam, this->ram + (this->ram[OAMDMA] << 8), 0xFF);
 }
 
-void			Ppu::render(int x, int y) {
+inline void		Ppu::render() {
 	/*char		color;
 	char		lowTilecolor;
 	char		highTilecolor;
@@ -136,8 +132,52 @@ void			Ppu::render(int x, int y) {
 	}*/
 }
 
+inline void		Ppu::loadIntoShiftRegisters() {
+	this->registers.lowPlaneShift &= 0x00FF;
+	this->registers.lowPlaneShift |= (this->vram[this->currentTile.lowTile] << 8);
+	this->registers.highPlaneShift &= 0x00FF;
+	this->registers.highPlaneShift |= (this->vram[this->currentTile.highTile] << 8);
+}
+
 inline void		Ppu::tileFetch() {
-	
+	if ((this->actualPixel % 8) == 0) {
+		this->currentTile.highTile = this->currentTile.lowTile + 0x8;
+		this->loadIntoShiftRegisters();
+	}
+	else if ((this->actualPixel % 6) == 0)
+		this->currentTile.lowTile = this->getBackgroundPatternTableIndex() + (this->currentTile.nameTable << 4) + ((this->registers.currentAddress & FINEYMASK) >> 12);
+	else if ((this->actualPixel % 4) == 0)
+		this->currentTile.attributeTable = this->vramMirrors[ATTRBYTEFETCH(this->registers.currentAddress)];
+	else if ((this->actualPixel % 2) == 0)
+		this->currentTile.nameTable = this->vramMirrors[NTBYTEFETCH(this->registers.currentAddress)];
+}
+
+inline void		Ppu::addressWrap() {
+	if ((this->actualPixel % 8) == 0) { //After each tile fetch
+		if ((this->registers.currentAddress & COARSEXMASK) == MAXCOARSEX) {
+			this->registers.currentAddress &= ~COARSEXMASK; //Setting Coarse X bits to 0
+			this->registers.currentAddress ^= HTABLEMASK; //Switching the horizontal table bit
+		}
+		else
+			this->registers.currentAddress += 1;
+	}
+	if (this->actualPixel == HRESOLUTION) {
+		if ((this->registers.currentAddress & FINEYMASK) != MAXFINEY)
+			this->registers.currentAddress += 0x1000; //Increment Fine Y by 1;
+		else {
+			this->registers.currentAddress &= ~FINEYMASK; //Setting Fine Y bits to 0
+			uint16_t coarsey = (this->registers.currentAddress & COARSEYMASK) >> 5;
+			if (coarsey == MAXCOARSEY) {
+				coarsey = 0;
+				this->registers.currentAddress ^= VTABLEMASK; //Switching the vertical table bit
+			}
+			else if (coarsey == COARSEYOVF) //Might happen when reading attribute tables
+				coarsey = 0;
+			else
+				coarsey += 1;
+			this->registers.currentAddress = (this->registers.currentAddress & COARSEYMASK) | (coarsey << 5); //Puting coarseY back into the current address
+		}
+	}
 }
 
 void			Ppu::cycle(int cpuCycle) {
@@ -152,6 +192,8 @@ void			Ppu::cycle(int cpuCycle) {
 			}
 			else if (this->actualPixel < 257) { //Fetching data for each tile
 				this->tileFetch();
+				this->render();
+				this->addressWrap(); //needs to be last instruction here.
 			}
 			else if (this->actualPixel < 321) { //Fetching data for next scanline sprites
 				;

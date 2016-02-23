@@ -25,10 +25,21 @@
 #define		SPMASK(x)		((x & 0b00000100) >> 2)
 #define		BGSMASK(x)		((x & 0b00001000) >> 3)
 #define		SPSMASK(x)		((x & 0b00010000) >> 4)
-#define		UNSETMASK		0b11111111
 #define		SPOMASK			0b00100000
 #define		SPHMASK			0b01000000
 #define		VBMASK			0b10000000
+
+#define		COARSEXMASK		0x001F
+#define		COARSEYMASK		0x03E0
+#define		HTABLEMASK		0x0400
+#define		VTABLEMASK		0x0800
+#define		FINEYMASK		0x7000
+#define		MAXCOARSEX		31
+#define		MAXCOARSEY		29
+#define		COARSEYOVF		31
+#define		MAXFINEY		0x7000
+#define		NTBYTEFETCH(x)		(0x2000 | (x & 0x0FFF))
+#define		ATTRBYTEFETCH(x)	(0x23C0 | (x & 0x0C00) | ((x >> 4) & 0x38) | ((x >> 2) &0x07))
 
 #define		CYCLESPERSCANLINE	341
 #define		HRESOLUTION			256
@@ -42,19 +53,18 @@
 
 typedef struct s_tile {
 	uint16_t	nameTable;
-	char		attributeTable;
-	char		lowTile;
-	char		highTile;
+	uint16_t	attributeTable;
+	uint16_t	lowTile;
+	uint16_t	highTile;
 } t_tile;
 
 typedef struct s_register {
-	uint16_t	coarseXScroll;
-	uint16_t	coarseYScroll;
-	char		fineXScroll;
-	char		fineYScroll;
 	bool		writeToggle;
 	uint16_t	currentAddress;
 	uint16_t	temporaryAddress;
+	char		fineXScroll;
+	uint16_t	lowPlaneShift;
+	uint16_t	highPlaneShift;
 } t_register;
 
 class Ppu {
@@ -66,7 +76,6 @@ class Ppu {
 	int					actualScanline;
 	int					actualPixel;
 	bool				evenFrame;
-	std::queue<t_tile>	tilesQueue;
 	t_tile				currentTile;
 	t_register			registers;
 public:
@@ -87,8 +96,10 @@ public:
 	void		getPpuScroll();
 	void		getPpuAddr();
 	void		OamDmaWrite();
-	void		render(int x, int y);
+	void		render();
+	void		loadIntoShiftRegisters();
 	void		tileFetch();
+	void		addressWrap();
 	void		cycle(int);
 };
 
