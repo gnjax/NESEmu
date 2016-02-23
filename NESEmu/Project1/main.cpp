@@ -19,13 +19,15 @@ int		main() {
 	Joypad	joypad;
 	Ppu		ppu(nes.getPpuMemory(), nes.getCpuMemory(), test2, rom.getMirroring());
 	Cpu		cpu(&nes, &ppu, &joypad);
-	if (!rom.initialize("test.nes"))
+	if (!rom.initialize("C:\\Qt\\nestest.nes"))
 		Error::getInstance()->display();
 	rom.loadIntoMemory(nes.getCpuMemory(), nes.getPpuMemory());
+	cpu.setProgramCounter(0xC000);
+	//cpu.setProgramCounter(nes.getResetAddress());
 	while (42) {
 		cpu.loop();
-		if (ppu.isFrameRendered())
-			drawer->update(test2);
+		/*if (ppu.isFrameRendered())
+			drawer->update(test2);*/
 	}
 	return (0);
 }

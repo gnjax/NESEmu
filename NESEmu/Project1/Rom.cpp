@@ -37,10 +37,10 @@ bool	Rom::checkFile(std::string &s) {
 	}
 
 	//Check if the provided path is a regular file
-	if (!boost::filesystem::is_regular_file(status)) {
+	/*if (!boost::filesystem::is_regular_file(status)) {
 		Error::getInstance()->queue("The provided path is not a regular file");
 		return (false);
-	}
+	}*/
 
 	//Get filesize
 	this->size = boost::filesystem::file_size(path, ec);

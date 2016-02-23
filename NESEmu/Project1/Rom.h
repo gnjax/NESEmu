@@ -8,7 +8,7 @@
 
 #define		PGR_SIZE	0x4000
 #define		CHR_SIZE	0x2000
-#define		PGR_OFFSET	0xF
+#define		PGR_OFFSET	0x10
 
 class Rom {
 	const char	magic[4];

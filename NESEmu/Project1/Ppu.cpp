@@ -12,7 +12,7 @@ Ppu::Ppu(char* vram, char* ram, char *output, bool mirroring) {
 			this->vramMirrors[i] = i - 0x2C00 + 0x2400;
 		else if (i < IPINDEX)	//Mirroring of 0x2000 to 0x2EFF (why ?)
 			this->vramMirrors[i] = 0x2000 + i - 0x3000;
-		else if (i < SPINDEX + PSIZE)	//Mirroring every 4 bytes to the universal background color (transparent) located at IPINDEX
+		else if (i < SPINDEX + PSIZECACA)	//Mirroring every 4 bytes to the universal background color (transparent) located at IPINDEX
 			this->vramMirrors[i] = (((i % 0x4) == 0) ? (IPINDEX) : (i));
 		else if (i < 0x4000)	//Mirroring of both Image and Sprite Palette
 			this->vramMirrors[i] = ((i - 0x3F20) % 0x10) + 0x3F10;

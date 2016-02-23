@@ -1,5 +1,6 @@
 #pragma once
 #include <string.h>
+#include <cstdint>
 
 #define	PPUCTRL		0x2000
 #define PPUMASK		0x2001
@@ -18,7 +19,7 @@ public:
 	Nes();
 	~Nes();
 	char*	getCpuMemory();
-	char	getResetAddress();
+	uint16_t	getResetAddress();
 	char*	getPpuMemory();
 };
 

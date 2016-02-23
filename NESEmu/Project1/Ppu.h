@@ -6,7 +6,7 @@
 
 #define		PTSIZE			0x1000
 #define		NTSIZE			0x400
-#define		PSIZE			0x10
+#define		PSIZECACA		0x10
 #define		VRAMSIZE		0x8000
 #define		PT0INDEX		0x0
 #define		PT1INDEX		0x1000

@@ -1,4 +1,5 @@
 #include		"Cpu.h"
+#include "Windows.h"
 
 Cpu::Cpu(Nes* nes, Ppu* ppu, Joypad* joypad) {
 	this->nes = nes;
@@ -7,18 +8,18 @@ Cpu::Cpu(Nes* nes, Ppu* ppu, Joypad* joypad) {
 	this->A = 0;
 	this->X = 0;
 	this->Y = 0;
-	this->PS = 0;
+	this->PS = 0x24;
 	this->SP = 0;
 }
 
 Cpu::~Cpu() {
 }
 
-void			Cpu::setProgramCounter(char address) {
+void			Cpu::setProgramCounter(uint16_t address) {
 	this->PC = address;
 }
 
-inline unsigned __int16	Cpu::getValue(uint16_t addr) {
+inline uint16_t	Cpu::getValue(uint16_t addr) {
 	return (readRAM(addr + 1) << 8) | readRAM(addr);
 }
 
@@ -112,7 +113,9 @@ void			Cpu::loop() {
 	bool cFlag;
 
 	++PC;
-	switch (this->PC - 1) {
+	printf("%X	%X is executed  A:%X X:%X Y:%X P:%X SP:%X\n", this->PC - 1, (unsigned char)this->nes->getCpuMemory()[this->PC - 1], (unsigned char)A, (unsigned char)X, (unsigned char)Y, (unsigned char)PS, (unsigned char)SP);
+	Sleep(1000);
+	switch (readRAM(this->PC - 1)) {
 
 		/* ============================ Load and Store Instructions =============================== */
 
@@ -577,85 +580,58 @@ void			Cpu::loop() {
 
 		// -------------- [BCC] Branch if Carry Clear
 	case 0x90:	// relativ
-		if (C_FLAG == 0) {
-			--PC;
-			PC += (char)readRAM(readRAM(PC));
-		}
-		else
-			++PC;
+		if (C_FLAG == 0)
+			PC += (char)readRAM(PC);
+		++PC;
 		break;
 
 		// -------------- [BCS] Branch if Carry Set
-	case 0xB0:	// relativ
-		if (C_FLAG == 0)
-			++PC;
-		else {
-			--PC;
-			PC += (char)readRAM(readRAM(PC));
-		}
+	case 0xB0:	// relativ		
+		if (C_FLAG != 0)
+			PC += (char)readRAM(PC);
+		++PC;
 		break;
 
 		// -------------- [BEQ] Branch if Equal
 	case 0xF0:	// relativ
-		if (Z_FLAG == 0)
-			++PC;
-		else {
-			--PC;
-			PC += (char)readRAM(readRAM(PC));
-		}
+		if (Z_FLAG != 0)
+			PC += (char)readRAM(PC);
+		++PC;	
 		break;
 
 		// -------------- [BNE] Branch if not Equal
 	case 0xD0:	// relativ
 		if (Z_FLAG == 0)
-		{
-			--PC;
-			PC += (char)readRAM(readRAM(PC));
-		}
-		else
-			++PC;
+			PC += (char)readRAM(PC);
+		++PC;
 		break;
 
 		// -------------- [BMI] Branch if Minus
 	case 0x30:	// relativ
-		if (N_FLAG == 0)
-			++PC;
-		else {
-			--PC;
-			PC += (char)readRAM(readRAM(PC));
-		}
+		if (N_FLAG != 0)
+			PC += (char)readRAM(PC);
+		++PC;
 		break;
 
 		// -------------- [BPL] Branch on Plus
 	case 0x10:	// relativ
 		if (N_FLAG == 0)
-		{
-			--PC;
-			PC += (char)readRAM(readRAM(PC));
-		}
-		else
-			++PC;
+			PC += (char)readRAM(PC);
+		++PC;
 		break;
 		
 		// -------------- [BVS] Branch if Overflow Set
 	case 0x70: // relativ
-		if (V_FLAG == 0)
-			++PC;
-		else {
-			--PC;
-			PC += (char)readRAM(readRAM(PC));
-		}
+		if (V_FLAG != 0)
+			PC += (char)readRAM(PC);
+		++PC;
 		break;
 
 		// -------------- [BVC] Branch if Overflow Clear
 	case 0x50: // relativ
 		if (V_FLAG == 0)
-		{
-			--PC;
-			PC += (char)readRAM(readRAM(PC));
-		}
-		else
-			++PC;
+			PC += (char)readRAM(PC);
+		++PC;
 		break;
 
 
@@ -727,11 +703,15 @@ void			Cpu::loop() {
 		tmp = A & readRAM(readRAM(PC));
 		++PC;
 		ZNV_FlagHandler(ans, tmp);
+		PS &= 0b00111111;
+		PS |= (readRAM(readRAM(PC - 1)) & 0b11000000);
 		break;
 	case 0x2C:	// absolute
 		tmp = A & readRAM(getValue(PC));
 		PC += 2;
 		ZNV_FlagHandler(ans, tmp);
+		PS &= 0b00111111;
+		PS |= (readRAM(getValue(PC - 2)) & 0b11000000);
 		break;
 
 		

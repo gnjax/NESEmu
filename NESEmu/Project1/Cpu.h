@@ -54,7 +54,7 @@ class Cpu {
 public:
 	Cpu(Nes* nes, Ppu* ppu, Joypad* joypad);
 	~Cpu();
-	void			setProgramCounter(char address);
+	void			setProgramCounter(uint16_t address);
 	void			loop();
 };
 

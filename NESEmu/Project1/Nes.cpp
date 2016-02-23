@@ -20,6 +20,6 @@ char*	Nes::getCpuMemory() {
 	return this->ram;
 }
 
-char	Nes::getResetAddress() {
+uint16_t	Nes::getResetAddress() {
 	return ((this->ram[0xFFFD] << 8) | this->ram[0xFFFC]);
 }
