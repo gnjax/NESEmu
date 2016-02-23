@@ -27,6 +27,8 @@
 #define	UNSET_V_FLAG	(this->PS &= 0b10111111)
 #define	UNSET_N_FLAG	(this->PS &= 0b01111111)
 
+#define	SP_OFFSET		(0x0100)
+
 class Cpu {
 	Nes*		nes;
 	unsigned char*	ram;
@@ -34,7 +36,7 @@ class Cpu {
 	char		X;
 	char		Y;
 	char		PS;
-	uint16_t	SP;
+	char		SP;
 	uint16_t	PC;
 
 	uint16_t	getValue(uint16_t addr);

@@ -7,7 +7,7 @@ Cpu::Cpu(Nes* nes) {
 	this->X = 0;
 	this->Y = 0;
 	this->PS = 0;
-	this->SP = 0x100;
+	this->SP = 0;
 }
 
 Cpu::~Cpu() {
@@ -964,23 +964,23 @@ void	Cpu::loop(char* ram) {
 
 		// -------------- [PHA] Push Accumulator on stack
 	case 0x48:
-		ram[SP++] = A;
+		ram[SP_OFFSET + SP++] = A;
 		break;
 
 		// -------------- [PHP] Push Processor Status on stack
 	case 0x08:
-		ram[SP++] = PS;
+		ram[SP_OFFSET + SP++] = PS;
 		break;
 
 		// -------------- [PLA] Pull Accumulator from stack (affected flags : N, Z)
 	case 0x68:
-		A = ram[SP--];
+		A = ram[SP_OFFSET + SP--];
 		ZN_FlagHandler(A);
 		break;
 
 		// -------------- [PLP] Pull Processor Status from stack (affected flags : ALL)
 	case 0x28:
-		PS = ram[SP--];
+		PS = ram[SP_OFFSET + SP--];
 		break;
 
 		
@@ -989,8 +989,8 @@ void	Cpu::loop(char* ram) {
 		
 		// -------------- [JSR] Jump to Subroutine
 	case 0x20:
-		ram[SP++] = PC & 0x0F;
-		ram[SP++] = PC >> 8;
+		ram[SP_OFFSET + SP++] = PC & 0x0F;
+		ram[SP_OFFSET + SP++] = PC >> 8;
 		PC = getValue(PC);
 		break;
 
@@ -998,12 +998,15 @@ void	Cpu::loop(char* ram) {
 		// -------------- [RTS]
 	case 0x60:
 		PC = 0;
-		PC |= (ram[SP--] >> 8);
-		PC |= ram[SP--];
+		PC |= (ram[SP_OFFSET + SP--] >> 8);
+		PC |= ram[SP_OFFSET + SP--];
 
 		// -------------- [RTI]
 	case 0x40:
-		// TODO
+		PC = 0;
+		PC |= (ram[SP_OFFSET + SP--] >> 8);
+		PC |= ram[SP_OFFSET + SP--];
+		PS = ram[SP_OFFSET + SP--];
 		break;
 
 		
@@ -1056,7 +1059,9 @@ void	Cpu::loop(char* ram) {
 
 		// -------------- [BRK] Break (affected flags: B, I)
 	case 0x00:
-		// TODO : IRQ interupt
+		ram[SP_OFFSET + SP++] = PS;
+		ram[SP_OFFSET + SP++] = PC & 0x0F;
+		ram[SP_OFFSET + SP++] = PC >> 8;
 		SET_B_FLAG;
 		SET_I_FLAG;
 		break;
