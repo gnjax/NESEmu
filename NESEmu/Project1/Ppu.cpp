@@ -184,7 +184,7 @@ void			Ppu::cycle(int cpuCycle) {
 				this->attributeTableOffset -= 8;
 		}
 		if (this->actualScanline == 242 && this->actualPixel == 0) //VBLANK HIT
-			if (this->getVBlankInterrupt)
+			if (this->getVBlankInterrupt())
 				this->setVBlank(true);
 		this->actualPixel++;
 		if (this->actualPixel == CYCLESPERSCANLINE) { //End of the scanline
