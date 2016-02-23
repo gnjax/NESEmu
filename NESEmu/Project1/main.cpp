@@ -3,6 +3,9 @@
 #include "LoadLib.hpp"
 #include "IDrawer.h"
 #include "NESToRGBA.h"
+#include "Ppu.h"
+#include "Joypad.h"
+#include "Cpu.h"
 
 #include <iostream>
 
@@ -10,17 +13,19 @@ int		main() {
 	LoadLib<> libloader;
 	libloader.loadLibrary("SFML");
 	IDrawer* drawer = libloader.getInstance<IDrawer>();
-
-	NESToRGBA	colorConverter;
-	char* test = new char[61440];
 	char* test2 = new char[61440 * 4];
-
-	for (int i = 0; i < 61440; ++i)
-		test[i] = ((i / (256 * 3)) % 0x3F);
-
-	colorConverter.convert(test, &test2);
-
-	while (42)
-		drawer->update(test2);
+	Nes		nes;
+	Rom		rom;
+	Joypad	joypad;
+	Ppu		ppu(nes.getPpuMemory(), nes.getCpuMemory(), test2, rom.getMirroring());
+	Cpu		cpu(&nes, &ppu, &joypad);
+	if (!rom.initialize("test.nes"))
+		Error::getInstance()->display();
+	rom.loadIntoMemory(nes.getCpuMemory(), nes.getPpuMemory());
+	while (42) {
+		cpu.loop();
+		if (ppu.isFrameRendered())
+			drawer->update(test2);
+	}
 	return (0);
 }

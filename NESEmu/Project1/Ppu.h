@@ -84,6 +84,7 @@ class Ppu {
 	t_tile				currentTile;
 	t_register			registers;
 	NESToRGBA			converter;
+	bool				frameRendered;
 public:
 	Ppu(char*, char*, char *, bool);
 	~Ppu();
@@ -117,6 +118,7 @@ public:
 	void		loadIntoShiftRegisters();
 	void		tileFetch();
 	void		addressWrap();
+	bool isFrameRendered();
 	void		cycle(int);
 };
 

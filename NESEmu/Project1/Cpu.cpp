@@ -105,7 +105,7 @@ void			Cpu::writeRAM(uint16_t addr, unsigned char val) {
 	}
 }
 
-void			Cpu::loop(char* ram) {
+void			Cpu::loop() {
 	char error[64];
 	char ans = A;
 	char tmp;
@@ -1065,4 +1065,5 @@ void			Cpu::loop(char* ram) {
 		Error::getInstance()->queue(error);
 		break;
 	}
+	this->ppu->cycle(0);
 }

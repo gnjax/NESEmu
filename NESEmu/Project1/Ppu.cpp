@@ -31,6 +31,7 @@ Ppu::Ppu(char* vram, char* ram, char *output, bool mirroring) {
 	this->registers.writeToggle = false;
 	this->oamAddr = 0;
 	this->output = output;
+	this->frameRendered = false;
 }
 
 Ppu::~Ppu() {
@@ -237,7 +238,12 @@ inline void		Ppu::addressWrap() {
 	}
 }
 
+bool			Ppu::isFrameRendered() {
+	return (this->frameRendered);
+}
+
 void			Ppu::cycle(int cpuCycle) {
+	this->frameRendered = false;
 	for (int i = 0; i < 3; ++i) {
 		if (this->actualScanline == 0) { //Pre-render scanline
 			if (this->actualPixel >= 321 && this->actualPixel < 337)
@@ -276,6 +282,7 @@ void			Ppu::cycle(int cpuCycle) {
 		}
 		if (this->actualScanline == SCANLINES) { //End of the frame
 			this->actualScanline = 0;
+			this->frameRendered = true;
 			this->evenFrame = !this->evenFrame;
 			this->registers.currentAddress = this->registers.temporaryAddress;
 			converter.convert(this->screenMatrix, this->output);

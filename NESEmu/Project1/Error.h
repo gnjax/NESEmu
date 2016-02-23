@@ -1,6 +1,7 @@
 #pragma once
 #include <queue>
 #include <string>
+#include <iostream>
 
 class Error {
 	Error();
@@ -10,4 +11,5 @@ class Error {
 public:
 	static Error*	getInstance();
 	void			queue(std::string);
+	void display();
 };
