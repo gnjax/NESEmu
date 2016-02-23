@@ -1,6 +1,6 @@
 #include "Ppu.h"
 
-Ppu::Ppu(char* vram, char* ram, bool mirroring) {
+Ppu::Ppu(char* vram, char* ram, char *output, bool mirroring) {
 	for (int i = 0; i < VRAMSIZE; ++i) {
 		if (i < NT1INDEX)		//No mirroring for both Pattern Table and 1st Name Table
 			this->vramMirrors[i] = i;
@@ -29,6 +29,8 @@ Ppu::Ppu(char* vram, char* ram, bool mirroring) {
 	this->registers.currentAddress = NT0INDEX;
 	this->registers.temporaryAddress = NT0INDEX;
 	this->registers.writeToggle = false;
+	this->oamAddr = 0;
+	this->output = output;
 }
 
 Ppu::~Ppu() {
@@ -47,15 +49,15 @@ void			Ppu::PpuStatusRead() { //read to PPUSTATUS
 }
 
 void			Ppu::PpuOamAddressWrite() { //write to OAMADDR
-
+	this->oamAddr = this->ram[OAMADDR];
 }
 
 void			Ppu::PpuOamDataRead() { //read to OAMDATA
-
+	this->ram[OAMDATA] = this->oam[this->oamAddr];
 }
 
 void			Ppu::PpuOamDataWrite() { //write to OAMDATA
-
+	this->oam[this->oamAddr] = this->ram[OAMDATA];
 }
 
 void			Ppu::PpuScrollWrite() { //write to PPUSCROLL
@@ -63,19 +65,24 @@ void			Ppu::PpuScrollWrite() { //write to PPUSCROLL
 }
 
 void			Ppu::PpuAddrWrite() {
-
+	this->getPpuAddr();
 }
 
 void			Ppu::PpuDataWrite() { //write to PPUDATA
-
+	this->vram[this->vramMirrors[this->registers.temporaryAddress]] = this->ram[PPUDATA];
+	this->registers.temporaryAddress += this->getIncrement();
 }
 
 void			Ppu::PpuDataRead() { //read to PPUDATA
-
+	this->ram[PPUDATA] = this->vram[this->vramMirrors[this->registers.temporaryAddress]];
+	this->registers.temporaryAddress += this->getIncrement();
 }
 
 void			Ppu::PpuOamDmaWrite() { //write to OAMDMA
+	uint16_t	start;
 
+	start = this->ram[OAMDMA] << 8;
+	memcpy(this->oam, this->ram + start, 0x100);
 }
 
 //Fetch the nametable address to use. NT from #0 to #3
@@ -139,7 +146,7 @@ inline void		Ppu::setVBlank(bool vblank) {
 	this->ram[PPUSTATUS] = ((vblank) ? (this->ram[PPUSTATUS] | VBMASK) : (this->ram[PPUSTATUS] & ~VBMASK));
 }
 
-void			Ppu::getPpuScroll() { //Get the PPUSCROLL register value. 2 successives writes for respectively x and y.
+inline void		Ppu::getPpuScroll() { //Get the PPUSCROLL register value. 2 successives writes for respectively x and y.
 	if (!this->registers.writeToggle) {
 		this->registers.fineXScroll = this->ram[PPUSCROLL] & 0b00000111;
 		this->registers.temporaryAddress &= 0xFFE0; // Clears Coarse X bits from address;
@@ -153,7 +160,7 @@ void			Ppu::getPpuScroll() { //Get the PPUSCROLL register value. 2 successives w
 	this->registers.writeToggle = !this->registers.writeToggle;
 }
 
-void			Ppu::getPpuAddr() { //Get the PPUADDR register vlaue. 2 successives writes for higher and lower bytes of the 2 bytes address.
+inline void		Ppu::getPpuAddr() { //Get the PPUADDR register vlaue. 2 successives writes for higher and lower bytes of the 2 bytes address.
 	if (!this->registers.writeToggle)
 		this->registers.temporaryAddress = (uint16_t)(this->ram[PPUADDR]) << 8;
 	else
@@ -167,8 +174,9 @@ inline void		Ppu::OamDmaWrite() {
 }
 
 inline void		Ppu::render() {
-	char color;
-	color = ((this->registers.lowPlaneShift >> this->registers.fineXScroll) & 0x0001) | \
+	char color = 0;
+	if (this->getShowBackground())
+		color = ((this->registers.lowPlaneShift >> this->registers.fineXScroll) & 0x0001) | \
 		(((this->registers.highPlaneShift >> this->registers.fineXScroll) & 0x0001) << 1) | \
 		(((this->registers.lowPaletteShift >> this->registers.fineXScroll) & 0x0001) << 2) | \
 		(((this->registers.highPaletteShift >> this->registers.fineXScroll) & 0x0001) << 3);
@@ -245,7 +253,7 @@ void			Ppu::cycle(int cpuCycle) {
 				this->addressWrap(); //needs to be last instruction here.
 			}
 			else if (this->actualPixel < 321) { //Fetching data for next scanline sprites
-				;
+				this->oamAddr = 0;
 			}
 			else if (this->actualPixel < 337) { //Fetching 2 tiles for the next scanline
 				this->tileFetch();
@@ -270,6 +278,7 @@ void			Ppu::cycle(int cpuCycle) {
 			this->actualScanline = 0;
 			this->evenFrame = !this->evenFrame;
 			this->registers.currentAddress = this->registers.temporaryAddress;
+			converter.convert(this->screenMatrix, this->output);
 		}
 	}
 }

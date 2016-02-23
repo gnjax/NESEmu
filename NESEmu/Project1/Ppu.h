@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <queue>
 #include "Nes.h"
+#include "NESToRGBA.h"
 
 #define		PTSIZE			0x1000
 #define		NTSIZE			0x400
@@ -59,14 +60,14 @@ typedef struct s_tile {
 } t_tile;
 
 typedef struct s_register {
-	bool		writeToggle;
-	uint16_t	currentAddress;
-	uint16_t	temporaryAddress;
-	char		fineXScroll;
-	uint16_t	lowPlaneShift;
-	uint16_t	highPlaneShift;
-	uint16_t	lowPaletteShift;
-	uint16_t	highPaletteShift;
+	bool				writeToggle;
+	uint16_t			currentAddress;
+	uint16_t			temporaryAddress;
+	unsigned char		fineXScroll;
+	uint16_t			lowPlaneShift;
+	uint16_t			highPlaneShift;
+	uint16_t			lowPaletteShift;
+	uint16_t			highPaletteShift;
 } t_register;
 
 class Ppu {
@@ -74,14 +75,17 @@ class Ppu {
 	char				*ram;
 	char				*oam;
 	char				*screenMatrix;
+	char				*output;
+	unsigned char		oamAddr;
 	uint16_t			vramMirrors[0x8000];
 	int					actualScanline;
 	int					actualPixel;
 	bool				evenFrame;
 	t_tile				currentTile;
 	t_register			registers;
+	NESToRGBA			converter;
 public:
-	Ppu(char*, char*, bool);
+	Ppu(char*, char*, char *, bool);
 	~Ppu();
 	void		PpuControlWrite();
 	void		PpuMaskWrite();

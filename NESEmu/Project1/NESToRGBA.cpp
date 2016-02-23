@@ -77,7 +77,7 @@ NESToRGBA::~NESToRGBA()
 {
 }
 
-void	NESToRGBA::convert(char* input, char** output, unsigned int size) {
+void	NESToRGBA::convert(char* input, char* output, unsigned int size) {
 	for (unsigned int i = 0; i < size; ++i)
-		memcpy(&((*output)[i * 4]), &(this->_palette[input[i]]), 4);
+		memcpy(output + i * 4, &(this->_palette[input[i]]), 4);
 }

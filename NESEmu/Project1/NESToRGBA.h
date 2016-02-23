@@ -10,6 +10,6 @@ public:
 	NESToRGBA();
 	~NESToRGBA();
 
-	void	convert(char* input, char** output, unsigned int size = 61440);
+	void	convert(char* input, char* output, unsigned int size = 61440);
 };
 
