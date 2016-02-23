@@ -94,6 +94,9 @@ void			Cpu::writeRAM(uint16_t addr, unsigned char val) {
 	case PPUDATA:
 		this->ppu->PpuDataWrite();
 		break;
+	case PPUADDR:
+		this->ppu->PpuAddrWrite();
+		break;
 	case OAMDMA:
 		this->ppu->PpuOamDmaWrite();
 		break;

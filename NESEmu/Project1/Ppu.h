@@ -90,6 +90,7 @@ public:
 	void		PpuOamDataRead();
 	void		PpuOamDataWrite();
 	void		PpuScrollWrite();
+	void		PpuAddrWrite();
 	void		PpuDataWrite();
 	void		PpuDataRead();
 	void		PpuOamDmaWrite();

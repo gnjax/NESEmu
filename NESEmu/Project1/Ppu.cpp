@@ -59,6 +59,10 @@ void			Ppu::PpuOamDataWrite() { //write to OAMDATA
 }
 
 void			Ppu::PpuScrollWrite() { //write to PPUSCROLL
+	this->getPpuScroll();
+}
+
+void			Ppu::PpuAddrWrite() {
 
 }
 
