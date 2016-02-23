@@ -65,6 +65,8 @@ typedef struct s_register {
 	char		fineXScroll;
 	uint16_t	lowPlaneShift;
 	uint16_t	highPlaneShift;
+	uint16_t	lowPaletteShift;
+	uint16_t	highPaletteShift;
 } t_register;
 
 class Ppu {
@@ -81,7 +83,17 @@ class Ppu {
 public:
 	Ppu(char*, char*, bool);
 	~Ppu();
-	uint16_t	getNameTableIndex();
+	void		PpuControlWrite();
+	void		PpuMaskWrite();
+	void		PpuStatusRead();
+	void		PpuOamAddressWrite();
+	void		PpuOamDataRead();
+	void		PpuOamDatawrite();
+	void		PpuScrollWrite();
+	void		PpuDataWrite();
+	void		PpuDataRead();
+	void		PpuOamDmaWrite();
+	void		getNameTableIndex();
 	char		getIncrement();
 	uint16_t	getSpritePatternTableIndex();
 	uint16_t	getBackgroundPatternTableIndex();

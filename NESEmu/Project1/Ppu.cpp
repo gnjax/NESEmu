@@ -34,9 +34,50 @@ Ppu::Ppu(char* vram, char* ram, bool mirroring) {
 Ppu::~Ppu() {
 }
 
+void			Ppu::PpuControlWrite() { //write to PPUCTRL
+	this->getNameTableIndex();
+}
+
+void			Ppu::PpuMaskWrite() { //write to PPUMASK
+
+}
+
+void			Ppu::PpuStatusRead() { //write to PPUSTATUS
+	this->registers.writeToggle = false;
+}
+
+void			Ppu::PpuOamAddressWrite() { //write to OAMADDR
+
+}
+
+void			Ppu::PpuOamDataRead() { //read to OAMADDR
+
+}
+
+void			Ppu::PpuOamDatawrite() { //write to OAMADDR
+
+}
+
+void			Ppu::PpuScrollWrite() { //write to PPUSCROLL
+
+}
+
+void			Ppu::PpuDataWrite() { //write to PPUDATA
+
+}
+
+void			Ppu::PpuDataRead() { //read to PPUDATA
+
+}
+
+void			Ppu::PpuOamDmaWrite() { //write to OAMDMA
+
+}
+
 //Fetch the nametable address to use. NT from #0 to #3
-inline uint16_t	Ppu::getNameTableIndex() {
-	return (this->vramMirrors[(NTMASK(this->ram[PPUCTRL]) * NTSIZE) + NT0INDEX]);
+inline void		Ppu::getNameTableIndex() {
+	this->registers.temporaryAddress &= 0xF3FF; //Clear Nametable bits
+	this->registers.temporaryAddress |= ((uint16_t)(this->ram[PPUCTRL] & 0b00000011) << 10);
 }
 
 //Fetch the address increment per CPU read/write of PPUDATA. Either 1 or 32
@@ -95,48 +136,52 @@ inline void		Ppu::setVBlank(bool vblank) {
 }
 
 void			Ppu::getPpuScroll() { //Get the PPUSCROLL register value. 2 successives writes for respectively x and y.
-	if (!this->registers.writeToggle)
-		;//this->registers.fineXScroll = this->ram[PPUSCROLL];
-	else
-		;//this->registers.fineYScroll = this->ram[PPUSCROLL];
+	if (!this->registers.writeToggle) {
+		this->registers.fineXScroll = this->ram[PPUSCROLL] & 0b00000111;
+		this->registers.temporaryAddress &= 0xFFE0; // Clears Coarse X bits from address;
+		this->registers.temporaryAddress |= (this->ram[PPUSCROLL] >> 3); // And put the new value in it
+	}
+	else {
+		this->registers.temporaryAddress &= 0x8C1F; // Clears Coarse Y and fine Y bits from address;
+		this->registers.temporaryAddress |= ((uint16_t)(this->ram[PPUSCROLL] & 0b00000111) << 13);
+		this->registers.temporaryAddress |= ((uint16_t)(this->ram[PPUSCROLL] & 0b11111000) << 2);
+	}
 	this->registers.writeToggle = !this->registers.writeToggle;
 }
 
 void			Ppu::getPpuAddr() { //Get the PPUADDR register vlaue. 2 successives writes for higher and lower bytes of the 2 bytes address.
 	if (!this->registers.writeToggle)
-		;//this->ppuaddr = this->ram[PPUADDR] << 8;
+		this->registers.temporaryAddress = (uint16_t)(this->ram[PPUADDR]) << 8;
 	else
-		;//this->ppuaddr |= this->ram[PPUADDR];
+		this->registers.temporaryAddress |= this->ram[PPUADDR];
 	this->registers.writeToggle = !this->registers.writeToggle;
 }
 
 //When a CPU write occurs to OAMDMA, takes 256 bytes from CPU memory from $XX00 -> $XXFF to oam memory. Takes 512 cycles
 inline void		Ppu::OamDmaWrite() {
-	memcpy(this->oam, this->ram + (this->ram[OAMDMA] << 8), 0xFF);
+	memcpy(this->oam, this->ram + ((uint16_t)(this->ram[OAMDMA]) << 8), 0xFF);
 }
 
 inline void		Ppu::render() {
-	/*char		color;
-	char		lowTilecolor;
-	char		highTilecolor;
-	t_tile		tile = this->tilesQueue.front();
-
-	this->tilesQueue.pop();
-	for (int i = 0; i < 8; ++i) {
-		lowTilecolor = (this->vram[tile.lowTile + (y - 1)] >> (7 - i)) & 0b00000001;
-		highTilecolor = (this->vram[tile.highTile + (y - 1)] >> (7 - i)) & 0b00000001;
-		color = lowTilecolor | ((highTilecolor) << 1);
-		color |= (this->vram[tile.attributeTable] >> (int)floor(((this->nameTableOffset - 1) % 0xF) / 4) * 2) << 2;
-		color = this->vram[IPINDEX + color];
-		this->screenMatrix[(x + i) * y] = color;
-	}*/
+	char color;
+	color = ((this->registers.lowPlaneShift >> this->registers.fineXScroll) & 0x0001) | \
+		(((this->registers.highPlaneShift >> this->registers.fineXScroll) & 0x0001) << 1) | \
+		(((this->registers.lowPaletteShift >> this->registers.fineXScroll) & 0x0001) << 2) | \
+		(((this->registers.highPaletteShift >> this->registers.fineXScroll) & 0x0001) << 3);
+	int	screenOffset = (this->actualPixel - 1) ? (this->actualScanline * (this->actualPixel - 1)) : (this->actualScanline);
+	this->screenMatrix[screenOffset] = this->vram[this->vramMirrors[IPINDEX + color]];
+	this->registers.lowPlaneShift >> 1;
+	this->registers.highPlaneShift >> 1;
+	this->registers.lowPaletteShift >> 1;
+	this->registers.highPaletteShift >> 1;
 }
 
 inline void		Ppu::loadIntoShiftRegisters() {
-	this->registers.lowPlaneShift &= 0x00FF;
 	this->registers.lowPlaneShift |= (this->vram[this->currentTile.lowTile] << 8);
-	this->registers.highPlaneShift &= 0x00FF;
 	this->registers.highPlaneShift |= (this->vram[this->currentTile.highTile] << 8);
+	//TEMPORARY - ONLY GREY SCALE
+	this->registers.lowPaletteShift = 0;
+	this->registers.highPaletteShift = 0;
 }
 
 inline void		Ppu::tileFetch() {
@@ -147,9 +192,9 @@ inline void		Ppu::tileFetch() {
 	else if ((this->actualPixel % 6) == 0)
 		this->currentTile.lowTile = this->getBackgroundPatternTableIndex() + (this->currentTile.nameTable << 4) + ((this->registers.currentAddress & FINEYMASK) >> 12);
 	else if ((this->actualPixel % 4) == 0)
-		this->currentTile.attributeTable = this->vramMirrors[ATTRBYTEFETCH(this->registers.currentAddress)];
+		this->currentTile.attributeTable = this->vram[this->vramMirrors[ATTRBYTEFETCH(this->registers.currentAddress)]];
 	else if ((this->actualPixel % 2) == 0)
-		this->currentTile.nameTable = this->vramMirrors[NTBYTEFETCH(this->registers.currentAddress)];
+		this->currentTile.nameTable = this->vram[this->vramMirrors[NTBYTEFETCH(this->registers.currentAddress)]];
 }
 
 inline void		Ppu::addressWrap() {
@@ -206,7 +251,7 @@ void			Ppu::cycle(int cpuCycle) {
 			}
 		}
 	
-		if (this->actualScanline == 242 && this->actualPixel == 0) //VBLANK HIT
+		if (this->actualScanline == 242 && this->actualPixel == 1) //VBLANK HIT
 			if (this->getVBlankInterrupt())
 				this->setVBlank(true);
 		this->actualPixel++;
@@ -220,6 +265,7 @@ void			Ppu::cycle(int cpuCycle) {
 		if (this->actualScanline == SCANLINES) { //End of the frame
 			this->actualScanline == 0;
 			this->evenFrame = !this->evenFrame;
+			this->registers.currentAddress = this->registers.temporaryAddress;
 		}
 	}
 }
