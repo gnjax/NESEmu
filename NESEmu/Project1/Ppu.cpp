@@ -3,21 +3,21 @@
 Ppu::Ppu(char* vram, char* ram, bool mirroring) {
 	for (int i = 0; i < VRAMSIZE; ++i) {
 		if (i < NT1INDEX)		//No mirroring for both Pattern Table and 1st Name Table
-			this->mirrors[i] = i;
+			this->vramMirrors[i] = i;
 		else if (i < NT2INDEX)	//Mirroring of 2nd Name Table
-			this->mirrors[i] = i - 0x2400 + (mirroring ? 0x2400 : 0x2000);
+			this->vramMirrors[i] = i - 0x2400 + (mirroring ? 0x2400 : 0x2000);
 		else if (i < NT3INDEX)	//Mirroring of 3rd Name Table
-			this->mirrors[i] = i - 0x2800 + (mirroring ? 0x2000 : 0x2400);
+			this->vramMirrors[i] = i - 0x2800 + (mirroring ? 0x2000 : 0x2400);
 		else if (i < NT3INDEX + NTSIZE)	//Mirroring of 4th Name Table
-			this->mirrors[i] = i - 0x2C00 + 0x2400;
+			this->vramMirrors[i] = i - 0x2C00 + 0x2400;
 		else if (i < IPINDEX)	//Mirroring of 0x2000 to 0x2EFF (why ?)
-			this->mirrors[i] = 0x2000 + i - 0x3000;
+			this->vramMirrors[i] = 0x2000 + i - 0x3000;
 		else if (i < SPINDEX + PSIZE)	//Mirroring every 4 bytes to the universal background color (transparent) located at IPINDEX
-			this->mirrors[i] = (((i % 0x4) == 0) ? (IPINDEX) : (i));
+			this->vramMirrors[i] = (((i % 0x4) == 0) ? (IPINDEX) : (i));
 		else if (i < 0x4000)	//Mirroring of both Image and Sprite Palette
-			this->mirrors[i] = ((i - 0x3F20) % 0x10) + 0x3F10;
+			this->vramMirrors[i] = ((i - 0x3F20) % 0x10) + 0x3F10;
 		else                    //Mirroring of 0x0000 to 0x4000
-			this->mirrors[i] = i - 0x4000;
+			this->vramMirrors[i] = i - 0x4000;
 	}
 	this->vram = vram;
 	this->ram = ram;
@@ -26,11 +26,13 @@ Ppu::Ppu(char* vram, char* ram, bool mirroring) {
 	this->actualPixel = 0;
 	this->actualScanline = 0;
 	this->evenFrame = true;
-	this->nameTableOffset = 0;
-	this->attributeTableOffset = 0;
-	this->writeToggle = false;
-	this->scrollX = 0;
-	this->scrollY = 0;
+	this->registers.coarseXScroll = 0;
+	this->registers.coarseYScroll = 0;
+	this->registers.currentAddress = NT0INDEX;
+	this->registers.temporaryAddress = NT0INDEX;
+	this->registers.fineXScroll = 0;
+	this->registers.fineYScroll = 0;
+	this->registers.writeToggle = false;
 }
 
 Ppu::~Ppu() {
@@ -38,7 +40,7 @@ Ppu::~Ppu() {
 
 //Fetch the nametable address to use. NT from #0 to #3
 inline uint16_t	Ppu::getNameTableIndex() {
-	return (this->mirrors[(NTMASK(this->ram[PPUCTRL]) * NTSIZE) + NT0INDEX]);
+	return (this->vramMirrors[(NTMASK(this->ram[PPUCTRL]) * NTSIZE) + NT0INDEX]);
 }
 
 //Fetch the address increment per CPU read/write of PPUDATA. Either 1 or 32
@@ -97,19 +99,19 @@ inline void		Ppu::setVBlank(bool vblank) {
 }
 
 void			Ppu::getPpuScroll() { //Get the PPUSCROLL register value. 2 successives writes for respectively x and y.
-	if (!this->writeToggle)
-		this->scrollX = this->ram[PPUSCROLL];
+	if (!this->registers.writeToggle)
+		this->registers.fineXScroll = this->ram[PPUSCROLL];
 	else
-		this->scrollY = this->ram[PPUSCROLL];
-	this->writeToggle = !this->writeToggle;
+		this->registers.fineYScroll = this->ram[PPUSCROLL];
+	this->registers.writeToggle = !this->registers.writeToggle;
 }
 
 void			Ppu::getPpuAddr() { //Get the PPUADDR register vlaue. 2 successives writes for higher and lower bytes of the 2 bytes address.
-	if (!this->writeToggle)
-		this->ppuaddr = this->ram[PPUADDR] << 8;
+	if (!this->registers.writeToggle)
+		;//this->ppuaddr = this->ram[PPUADDR] << 8;
 	else
-		this->ppuaddr |= this->ram[PPUADDR];
-	this->writeToggle = !this->writeToggle;
+		;//this->ppuaddr |= this->ram[PPUADDR];
+	this->registers.writeToggle = !this->registers.writeToggle;
 }
 
 //When a CPU write occurs to OAMDMA, takes 256 bytes from CPU memory from $XX00 -> $XXFF to oam memory. Takes 512 cycles
@@ -118,7 +120,7 @@ inline void		Ppu::OamDmaWrite() {
 }
 
 void			Ppu::render(int x, int y) {
-	char		color;
+	/*char		color;
 	char		lowTilecolor;
 	char		highTilecolor;
 	t_tile		tile = this->tilesQueue.front();
@@ -131,27 +133,11 @@ void			Ppu::render(int x, int y) {
 		color |= (this->vram[tile.attributeTable] >> (int)floor(((this->nameTableOffset - 1) % 0xF) / 4) * 2) << 2;
 		color = this->vram[IPINDEX + color];
 		this->screenMatrix[(x + i) * y] = color;
-	}
+	}*/
 }
 
 inline void		Ppu::tileFetch() {
-	if ((this->actualPixel % 8) == 0) { //Load tile bitmap high + render
-		this->currentTile.highTile = this->currentTile.lowTile += 0x8;
-		this->tilesQueue.push(this->currentTile);
-		this->nameTableOffset++;
-		if ((this->nameTableOffset % 0xF) == 0)
-			this->attributeTableOffset++;
-		this->render(this->actualScanline, this->actualPixel - 8);
-	}
-	else if ((this->actualPixel % 6) == 0) { //Load tile bitmap low
-		this->currentTile.lowTile = (this->vram[this->currentTile.nameTable] * 0xF) + this->getBackgroundPatternTableIndex();
-	}
-	else if ((this->actualPixel % 4) == 0) { //Load attribute table byte
-		this->currentTile.attributeTable = this->currentTile.nameTable - this->nameTableOffset + 0x3C0 + this->attributeTableOffset;
-	}
-	else if ((this->actualPixel % 2) == 0) { //Load nametable byte
-		this->currentTile.nameTable = this->getNameTableIndex() + this->nameTableOffset;
-	}
+	
 }
 
 void			Ppu::cycle(int cpuCycle) {
@@ -164,7 +150,7 @@ void			Ppu::cycle(int cpuCycle) {
 			if (this->actualPixel == 0) { // Idle cycle
 				;//NOTHING TO DO HERE
 			}
-			else if (this->actualPixel < 257 - 16/*test*/) { //Fetching data for each tile
+			else if (this->actualPixel < 257) { //Fetching data for each tile
 				this->tileFetch();
 			}
 			else if (this->actualPixel < 321) { //Fetching data for next scanline sprites
@@ -177,12 +163,7 @@ void			Ppu::cycle(int cpuCycle) {
 				;
 			}
 		}
-		if (this->actualPixel == 257 - 15 && this->actualScanline > 1) {
-			if ((this->actualScanline % 8) != 0)
-				this->nameTableOffset -= 32;
-			if ((this->actualScanline % 32) != 0)
-				this->attributeTableOffset -= 8;
-		}
+	
 		if (this->actualScanline == 242 && this->actualPixel == 0) //VBLANK HIT
 			if (this->getVBlankInterrupt())
 				this->setVBlank(true);
@@ -197,8 +178,6 @@ void			Ppu::cycle(int cpuCycle) {
 		if (this->actualScanline == SCANLINES) { //End of the frame
 			this->actualScanline == 0;
 			this->evenFrame = !this->evenFrame;
-			this->nameTableOffset = 0;
-			this->attributeTableOffset = 0;
 		}
 	}
 }

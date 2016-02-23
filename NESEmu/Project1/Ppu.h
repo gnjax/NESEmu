@@ -47,23 +47,28 @@ typedef struct s_tile {
 	char		highTile;
 } t_tile;
 
+typedef struct s_register {
+	uint16_t	coarseXScroll;
+	uint16_t	coarseYScroll;
+	char		fineXScroll;
+	char		fineYScroll;
+	bool		writeToggle;
+	uint16_t	currentAddress;
+	uint16_t	temporaryAddress;
+} t_register;
+
 class Ppu {
 	char				*vram;
 	char				*ram;
 	char				*oam;
 	char				*screenMatrix;
-	uint16_t			mirrors[0x8000];
+	uint16_t			vramMirrors[0x8000];
 	int					actualScanline;
 	int					actualPixel;
 	bool				evenFrame;
 	std::queue<t_tile>	tilesQueue;
 	t_tile				currentTile;
-	uint16_t			nameTableOffset;
-	uint16_t			attributeTableOffset;
-	bool				writeToggle; //Shared between PPUSCROLL and PPUADDR
-	uint16_t			scrollX;
-	uint16_t			scrollY;
-	uint16_t			ppuaddr;
+	t_register			registers;
 public:
 	Ppu(char*, char*, bool);
 	~Ppu();
