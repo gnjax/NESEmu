@@ -1003,7 +1003,10 @@ void	Cpu::loop(char* ram) {
 
 		// -------------- [RTI]
 	case 0x40:
-		// TODO
+		PC = 0;
+		PC |= (ram[SP_OFFSET + SP--] >> 8);
+		PC |= ram[SP_OFFSET + SP--];
+		PS = ram[SP_OFFSET + SP--];
 		break;
 
 		
@@ -1056,7 +1059,9 @@ void	Cpu::loop(char* ram) {
 
 		// -------------- [BRK] Break (affected flags: B, I)
 	case 0x00:
-		// TODO : IRQ interupt
+		ram[SP_OFFSET + SP++] = PS;
+		ram[SP_OFFSET + SP++] = PC & 0x0F;
+		ram[SP_OFFSET + SP++] = PC >> 8;
 		SET_B_FLAG;
 		SET_I_FLAG;
 		break;
