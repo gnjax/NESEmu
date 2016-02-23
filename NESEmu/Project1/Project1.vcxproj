@@ -125,6 +125,7 @@
   <ItemGroup>
     <ClCompile Include="Cpu.cpp" />
     <ClCompile Include="Error.cpp" />
+    <ClCompile Include="Joypad.cpp" />
     <ClCompile Include="LoadLibWindows.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Nes.cpp" />
@@ -136,6 +137,7 @@
     <ClInclude Include="Cpu.h" />
     <ClInclude Include="Error.h" />
     <ClInclude Include="IDrawer.h" />
+    <ClInclude Include="Joypad.h" />
     <ClInclude Include="LoadLib.hpp" />
     <ClInclude Include="LoadLibWindows.h" />
     <ClInclude Include="Nes.h" />

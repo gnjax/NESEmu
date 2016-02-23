@@ -1,7 +1,11 @@
 #pragma once
 
 #include		<cstdint>
+#include		<cstdlib>
 #include		"Nes.h"
+#include		"Ppu.h"
+#include		"Error.h"
+#include		"Joypad.h"
 
 #define	C_FLAG			(this->PS & 0b00000001)
 #define	Z_FLAG			(this->PS & 0b00000010)
@@ -30,25 +34,27 @@
 #define	SP_OFFSET		(0x0100)
 
 class Cpu {
-	Nes*		nes;
-	unsigned char*	ram;
-	char		A;
-	char		X;
-	char		Y;
-	char		PS;
-	char		SP;
-	uint16_t	PC;
+	Nes*			nes;
+	Ppu*			ppu;
+	Joypad*			joypad;
+	char			A;
+	char			X;
+	char			Y;
+	char			PS;
+	char			SP;
+	uint16_t		PC;
 
-	uint16_t	getValue(uint16_t addr);
-	void		ZNV_FlagHandler(char ans, char val);
-	void		ZN_FlagHandler(char val);
+	uint16_t		getValue(uint16_t addr);
+	void			ZNV_FlagHandler(char ans, char val);
+	void			ZN_FlagHandler(char val);
 
-	void		CMP(char regVal, char opVal);
+	void			CMP(char regVal, char opVal);
+	unsigned char	readRAM(uint16_t addr);
+	void			writeRAM(uint16_t addr, unsigned char val);
 public:
-	Cpu(Nes* nes);
+	Cpu(Nes* nes, Ppu* ppu, Joypad* joypad);
 	~Cpu();
-	void		setProgramCounter(char address);
-	void		PpuRegisterObserver(uint16_t addr);
-	void		loop(char* memory);
+	void			setProgramCounter(char address);
+	void			loop(char* memory);
 };
 

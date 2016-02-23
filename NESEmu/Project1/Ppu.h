@@ -88,7 +88,7 @@ public:
 	void		PpuStatusRead();
 	void		PpuOamAddressWrite();
 	void		PpuOamDataRead();
-	void		PpuOamDatawrite();
+	void		PpuOamDataWrite();
 	void		PpuScrollWrite();
 	void		PpuDataWrite();
 	void		PpuDataRead();

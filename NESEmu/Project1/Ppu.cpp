@@ -42,7 +42,7 @@ void			Ppu::PpuMaskWrite() { //write to PPUMASK
 
 }
 
-void			Ppu::PpuStatusRead() { //write to PPUSTATUS
+void			Ppu::PpuStatusRead() { //read to PPUSTATUS
 	this->registers.writeToggle = false;
 }
 
@@ -50,11 +50,11 @@ void			Ppu::PpuOamAddressWrite() { //write to OAMADDR
 
 }
 
-void			Ppu::PpuOamDataRead() { //read to OAMADDR
+void			Ppu::PpuOamDataRead() { //read to OAMDATA
 
 }
 
-void			Ppu::PpuOamDatawrite() { //write to OAMADDR
+void			Ppu::PpuOamDataWrite() { //write to OAMDATA
 
 }
 
@@ -170,10 +170,10 @@ inline void		Ppu::render() {
 		(((this->registers.highPaletteShift >> this->registers.fineXScroll) & 0x0001) << 3);
 	int	screenOffset = (this->actualPixel - 1) ? (this->actualScanline * (this->actualPixel - 1)) : (this->actualScanline);
 	this->screenMatrix[screenOffset] = this->vram[this->vramMirrors[IPINDEX + color]];
-	this->registers.lowPlaneShift >> 1;
-	this->registers.highPlaneShift >> 1;
-	this->registers.lowPaletteShift >> 1;
-	this->registers.highPaletteShift >> 1;
+	this->registers.lowPlaneShift >>= 1;
+	this->registers.highPlaneShift >>= 1;
+	this->registers.lowPaletteShift >>= 1;
+	this->registers.highPaletteShift >>= 1;
 }
 
 inline void		Ppu::loadIntoShiftRegisters() {
@@ -263,7 +263,7 @@ void			Ppu::cycle(int cpuCycle) {
 			}
 		}
 		if (this->actualScanline == SCANLINES) { //End of the frame
-			this->actualScanline == 0;
+			this->actualScanline = 0;
 			this->evenFrame = !this->evenFrame;
 			this->registers.currentAddress = this->registers.temporaryAddress;
 		}
