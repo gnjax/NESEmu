@@ -45,11 +45,11 @@ class Cpu {
 	uint16_t		PC;
 
 	uint16_t		getValue(uint16_t addr);
-	void			VC_FlagHandler(char ans, char val);
+	void			VC_FlagHandler(unsigned char ans, unsigned char val);
 	void			ZNV_FlagHandler(char ans, char val);
 	void			ZN_FlagHandler(char val);
 
-	void			CMP(char regVal, char opVal);
+	void			CMP(unsigned char regVal, unsigned char opVal);
 	unsigned char	readRAM(uint16_t addr);
 	void			writeRAM(uint16_t addr, unsigned char val);
 public:

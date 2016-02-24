@@ -24,10 +24,10 @@ inline uint16_t	Cpu::getValue(uint16_t addr) {
 }
 
 
-inline void		Cpu::VC_FlagHandler(char ans, char val) {
-	int	tmp = (int)ans + (int)val + (int)(C_FLAG);
+inline void		Cpu::VC_FlagHandler(unsigned char ans, unsigned char val) {
+	int	tmp = (char)ans + (char)val + (char)(C_FLAG);
 	unsigned int tmpU = (unsigned int)ans + (unsigned int)val + (unsigned int)(C_FLAG);
-	PS = (tmp < -128 || tmp > 127) ? (PS | 0b01000000) : (PS & 0b10111111);
+	PS = (tmp > 127 || tmp < -128) ? (PS | 0b01000000) : (PS & 0b10111111);
 	PS = (tmpU > 0xFF) ? (PS | 0b00000001) : (PS & 0b11111110);
 }
 
@@ -52,22 +52,20 @@ inline void		Cpu::ZN_FlagHandler(char val) {
 	//	PS |= 0b10000000;	// set N_FLAG
 }
 
-inline void		Cpu::CMP(char regVal, char opVal) {
+inline void		Cpu::CMP(unsigned char regVal, unsigned char opVal) {
 	if (regVal < opVal) {
-		SET_N_FLAG;
 		UNSET_Z_FLAG;
 		UNSET_C_FLAG;
 	}
 	else if (regVal > opVal) {
-		UNSET_N_FLAG;
 		UNSET_Z_FLAG;
 		SET_C_FLAG;
 	}
 	else {
-		UNSET_N_FLAG;
 		SET_Z_FLAG;
 		SET_C_FLAG;
 	}
+	((regVal - opVal) >> 7) ? (SET_N_FLAG) : (UNSET_N_FLAG);
 }
 
 unsigned char	Cpu::readRAM(uint16_t addr) {
@@ -374,7 +372,7 @@ void			Cpu::loop(char *strLog) {
 		// -------------- [SBC] Sub with Carry (affected flags : N, Z, C, V)
 	case 0xE9:	// immediate
 		tmp = readRAM(PC);
-		A -= tmp - C_FLAG;
+		A -= tmp + C_FLAG;
 		VC_FlagHandler(ans, tmp);
 		++PC;
 		ZN_FlagHandler(A);
@@ -1028,7 +1026,7 @@ void			Cpu::loop(char *strLog) {
 		
 		// -------------- [JSR] Jump to Subroutine
 	case 0x20:
-		writeRAM(SP_OFFSET + SP--, (PC + 2) & 0x0F);
+		writeRAM(SP_OFFSET + SP--, (PC + 2) & 0xFF);
 		writeRAM(SP_OFFSET + SP--, (PC + 2) >> 8);
 		PC = getValue(PC);
 		break;

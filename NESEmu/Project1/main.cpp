@@ -21,7 +21,7 @@ int		main() {
 	Joypad	joypad;
 	Ppu		ppu(nes.getPpuMemory(), nes.getCpuMemory(), test2, rom.getMirroring());
 	Cpu		cpu(&nes, &ppu, &joypad);
-	if (!rom.initialize("C:\\nestest.nes"))
+	if (!rom.initialize("C:\\Qt\\nestest.nes"))
 		Error::getInstance()->display();
 	rom.loadIntoMemory(nes.getCpuMemory(), nes.getPpuMemory());
 	cpu.setProgramCounter(0xC000);
@@ -29,7 +29,7 @@ int		main() {
 
 	// create a file-reading object
 	std::ifstream fin;
-	fin.open("C:\\nestest.log"); // open a file
+	fin.open("C:\\Qt\\nestest.log"); // open a file
 	if (!fin.good())
 		return 1; // exit if file not found
 
