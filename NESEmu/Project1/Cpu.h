@@ -45,6 +45,7 @@ class Cpu {
 	uint16_t		PC;
 
 	uint16_t		getValue(uint16_t addr);
+	void			VC_FlagHandler(char ans, char val);
 	void			ZNV_FlagHandler(char ans, char val);
 	void			ZN_FlagHandler(char val);
 
@@ -55,6 +56,6 @@ public:
 	Cpu(Nes* nes, Ppu* ppu, Joypad* joypad);
 	~Cpu();
 	void			setProgramCounter(uint16_t address);
-	void			loop();
+	void			loop(char *);
 };
 

@@ -9,7 +9,7 @@ Cpu::Cpu(Nes* nes, Ppu* ppu, Joypad* joypad) {
 	this->X = 0;
 	this->Y = 0;
 	this->PS = 0x24;
-	this->SP = 0;
+	this->SP = 0xFD;
 }
 
 Cpu::~Cpu() {
@@ -23,15 +23,33 @@ inline uint16_t	Cpu::getValue(uint16_t addr) {
 	return (readRAM(addr + 1) << 8) | readRAM(addr);
 }
 
+
+inline void		Cpu::VC_FlagHandler(char ans, char val) {
+	int	tmp = (int)ans + (int)val + (int)(C_FLAG);
+	unsigned int tmpU = (unsigned int)ans + (unsigned int)val + (unsigned int)(C_FLAG);
+	PS = (tmp < -128 || tmp > 127) ? (PS | 0b01000000) : (PS & 0b10111111);
+	PS = (tmpU > 0xFF) ? (PS | 0b00000001) : (PS & 0b11111110);
+}
+
 inline void		Cpu::ZNV_FlagHandler(char ans, char val) {
 	PS = (val == 0) ? (PS | 0b00000010) : (PS & 0b11111101);									// set Z_FLAG
 	PS = (val < 0) ? (PS | 0b10000000) : (PS & 0b01111111);										// set N_FLAG
 	PS = ((val & 0b10000000) != (ans & 0b10000000)) ? (PS | 0b01000000) : (PS & 0b10111111);	// set V_FLAG
+//	if (val == 0)
+//		PS |= 0b00000010;	// set Z_FLAG
+//	if (val < 0)
+//		PS |= 0b10000000;	// set N_FLAG
+//	if ((val & 0b10000000) != (ans & 0b10000000))
+//		PS |= 0b01000000;	// set V_FLAG
 }
 
 inline void		Cpu::ZN_FlagHandler(char val) {
 	PS = (val == 0) ? (PS | 0b00000010) : (PS & 0b11111101);	// set Z_FLAG
 	PS = (val < 0) ? (PS | 0b10000000) : (PS & 0b01111111);		// set N_FLAG
+	//if (val == 0)
+	//	PS |= 0b00000010;	// set Z_FLAG
+	//if (val < 0)
+	//	PS |= 0b10000000;	// set N_FLAG
 }
 
 inline void		Cpu::CMP(char regVal, char opVal) {
@@ -106,15 +124,32 @@ void			Cpu::writeRAM(uint16_t addr, unsigned char val) {
 	}
 }
 
-void			Cpu::loop() {
+void			Cpu::loop(char *strLog) {
 	char error[64];
 	char ans = A;
 	char tmp;
 	bool cFlag;
 
 	++PC;
-	printf("%X	%X is executed  A:%X X:%X Y:%X P:%X SP:%X\n", this->PC - 1, (unsigned char)this->nes->getCpuMemory()[this->PC - 1], (unsigned char)A, (unsigned char)X, (unsigned char)Y, (unsigned char)PS, (unsigned char)SP);
-	Sleep(1000);
+
+	char strExec[1024];
+	char useless[42];
+	static HANDLE  hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	sprintf_s(strExec, "%04X %02X\t\tA:%02X X:%02X Y:%02X P:%02X SP:%02X", this->PC - 1, (unsigned char)this->nes->getCpuMemory()[this->PC - 1], (unsigned char)A, (unsigned char)X, (unsigned char)Y, (unsigned char)PS, (unsigned char)SP);
+	if (strcmp(strLog, strExec) != 0) {
+		SetConsoleTextAttribute(hConsole, 12);
+		printf("%s\n", strExec);
+		SetConsoleTextAttribute(hConsole, 10);
+		printf("%s\n", strLog);
+		SetConsoleTextAttribute(hConsole, 7);
+		std::cin >> useless;
+	}
+	else
+		printf("%s\n", strExec);
+		//printf("%X	%X is executed  A:%X X:%X Y:%X P:%X SP:%X\n", this->PC - 1, (unsigned char)this->nes->getCpuMemory()[this->PC - 1], (unsigned char)A, (unsigned char)X, (unsigned char)Y, (unsigned char)PS, (unsigned char)SP);
+		// Sleep(1000);
+
+
 	switch (readRAM(this->PC - 1)) {
 
 		/* ============================ Load and Store Instructions =============================== */
@@ -280,86 +315,118 @@ void			Cpu::loop() {
 		
 		// -------------- [ADC] Add with Carry (affected flags : N, Z, C, V)
 	case 0x69:	// immediate
-		A += readRAM(PC) + C_FLAG;
+		tmp = readRAM(PC);
+		A += tmp + C_FLAG;
+		VC_FlagHandler(ans, tmp);
 		++PC;
-		ZNV_FlagHandler(ans, A);
+		ZN_FlagHandler(A);
 		break;
 	case 0x65:	// absolute zero page
-		A += readRAM(readRAM(PC)) + C_FLAG;
+		tmp = readRAM(readRAM(PC));
+		A += tmp + C_FLAG;
+		VC_FlagHandler(ans, tmp);
 		++PC;
-		ZNV_FlagHandler(ans, A);
+		ZN_FlagHandler(A);
 		break;
 	case 0x75:	// indexed zero page X
-		A += readRAM(readRAM(PC + X)) + C_FLAG;
+		tmp = readRAM(readRAM(PC + X));
+		A += tmp + C_FLAG;
+		VC_FlagHandler(ans, tmp);
 		++PC;
-		ZNV_FlagHandler(ans, A);
+		ZN_FlagHandler(A);
 		break;
 	case 0x6D:	// absolute
-		A += readRAM(getValue(PC)) + C_FLAG;
+		tmp = readRAM(getValue(PC));
+		A += tmp + C_FLAG;
+		VC_FlagHandler(ans, tmp);
 		PC += 2;
-		ZNV_FlagHandler(ans, A);
+		ZN_FlagHandler(A);
 		break;
 	case 0x7D:	// absolute indexed X
-		A += readRAM(getValue(PC) + X) + C_FLAG;
+		tmp = readRAM(getValue(PC) + X);
+		A += tmp + C_FLAG;
+		VC_FlagHandler(ans, tmp);
 		PC += 2;
-		ZNV_FlagHandler(ans, A);
+		ZN_FlagHandler(A);
 		break;
 	case 0x79:	// absolute indexed Y
-		A += readRAM(getValue(PC) + Y) + C_FLAG;
+		tmp = readRAM(getValue(PC) + Y);
+		A += tmp + C_FLAG;
+		VC_FlagHandler(ans, tmp);
 		PC += 2;
-		ZNV_FlagHandler(ans, A);
+		ZN_FlagHandler(A);
 		break;
 	case 0x61:	// indexed indirect X
-		A += readRAM(getValue(readRAM(PC) + X)) + C_FLAG;
+		tmp = readRAM(getValue(readRAM(PC) + X));
+		A += tmp + C_FLAG;
+		VC_FlagHandler(ans, tmp);
 		PC += 2;
-		ZNV_FlagHandler(ans, A);
+		ZN_FlagHandler(A);
 		break;
 	case 0x71:	// indirect indexed Y
-		A += readRAM(getValue(readRAM(PC)) + Y) + C_FLAG;
+		tmp = readRAM(getValue(readRAM(PC)) + Y);
+		A += tmp + C_FLAG;
+		VC_FlagHandler(ans, tmp);
 		PC += 2;
-		ZNV_FlagHandler(ans, A);
+		ZN_FlagHandler(A);
 		break;
 
 		// -------------- [SBC] Sub with Carry (affected flags : N, Z, C, V)
 	case 0xE9:	// immediate
-		A -= readRAM(PC) - C_FLAG;
+		tmp = readRAM(PC);
+		A -= tmp - C_FLAG;
+		VC_FlagHandler(ans, tmp);
 		++PC;
-		ZNV_FlagHandler(ans, A);
+		ZN_FlagHandler(A);
 		break;
 	case 0xE5:	// absolute zero page
-		A -= readRAM(readRAM(PC)) - C_FLAG;
+		tmp = readRAM(readRAM(PC));
+		A -= tmp - C_FLAG;
+		VC_FlagHandler(ans, tmp);
 		++PC;
-		ZNV_FlagHandler(ans, A);
+		ZN_FlagHandler(A);
 		break;
 	case 0xF5:	// indexed zero page X
-		A -= readRAM(readRAM(PC + X)) - C_FLAG;
+		tmp = readRAM(readRAM(PC + X));
+		A -= tmp - C_FLAG;
+		VC_FlagHandler(ans, tmp);
 		++PC;
-		ZNV_FlagHandler(ans, A);
+		ZN_FlagHandler(A);
 		break;
 	case 0xED:	// absolute
-		A -= readRAM(getValue(PC)) - C_FLAG;
+		tmp = readRAM(getValue(PC));
+		A -= tmp - C_FLAG;
+		VC_FlagHandler(ans, tmp);
 		PC += 2;
-		ZNV_FlagHandler(ans, A);
+		ZN_FlagHandler(A);
 		break;
 	case 0xFD:	// absolute indexed X
-		A -= readRAM(getValue(PC) + X) - C_FLAG;
+		tmp = readRAM(getValue(PC) + X);
+		A -= tmp - C_FLAG;
+		VC_FlagHandler(ans, tmp);
 		PC += 2;
-		ZNV_FlagHandler(ans, A);
+		ZN_FlagHandler(A);
 		break;
 	case 0xF9:	// absolute indexed Y
-		A -= readRAM(getValue(PC) + Y) - C_FLAG;
+		tmp = readRAM(getValue(PC) + Y);
+		A -= tmp - C_FLAG;
+		VC_FlagHandler(ans, tmp);
 		PC += 2;
-		ZNV_FlagHandler(ans, A);
+		ZN_FlagHandler(A);
 		break;
 	case 0xE1:	// indexed indirect X
-		A -= readRAM(getValue(readRAM(PC) + X)) - C_FLAG;
+		tmp = readRAM(getValue(readRAM(PC) + X));
+		A -= tmp - C_FLAG;
+		VC_FlagHandler(ans, tmp);
 		PC += 2;
-		ZNV_FlagHandler(ans, A);
+		ZN_FlagHandler(A);
 		break;
 	case 0xF1:	// indirect indexed Y
-		A -= readRAM(getValue(readRAM(PC)) + Y) - C_FLAG;
+		tmp = readRAM(getValue(readRAM(PC)) + Y);
+		A -= tmp - C_FLAG;
+		VC_FlagHandler(ans, tmp);
 		PC += 2;
-		ZNV_FlagHandler(ans, A);
+		ZN_FlagHandler(A);
 		break;
 
 		
@@ -570,10 +637,10 @@ void			Cpu::loop() {
 		/* ============================ Jump, Branch, Compare, and Test Bits ====================== */
 		
 		// -------------- [JMP] Jump
-	case 0x4c:
+	case 0x4c:	// absolute
 		PC = getValue(PC);
 		break;
-	case 0x6c:
+	case 0x6c:	// indirect absolute
 		PC = getValue(getValue(PC));
 		break;
 
@@ -935,23 +1002,24 @@ void			Cpu::loop() {
 
 		// -------------- [PHA] Push Accumulator on stack
 	case 0x48:
-		writeRAM(readRAM(SP_OFFSET + SP++), A);
+		writeRAM(SP_OFFSET + SP--, A);
 		break;
 
 		// -------------- [PHP] Push Processor Status on stack
 	case 0x08:
-		writeRAM(readRAM(SP_OFFSET + SP++), PS);
+		writeRAM(SP_OFFSET + SP--, (PS | 0b00110000));
 		break;
 
 		// -------------- [PLA] Pull Accumulator from stack (affected flags : N, Z)
 	case 0x68:
-		A = readRAM(SP_OFFSET + SP--);
+		A = readRAM(SP_OFFSET + ++SP);
 		ZN_FlagHandler(A);
 		break;
 
 		// -------------- [PLP] Pull Processor Status from stack (affected flags : ALL)
 	case 0x28:
-		PS = readRAM(SP_OFFSET + SP--);
+		PS &= 0b00110000;
+		PS |= (readRAM(SP_OFFSET + ++SP) & 0b11001111);
 		break;
 
 		
@@ -960,8 +1028,8 @@ void			Cpu::loop() {
 		
 		// -------------- [JSR] Jump to Subroutine
 	case 0x20:
-		writeRAM(readRAM(SP_OFFSET + SP++), PC & 0x0F);
-		writeRAM(readRAM(SP_OFFSET + SP++), PC >> 8);
+		writeRAM(SP_OFFSET + SP--, (PC + 2) & 0x0F);
+		writeRAM(SP_OFFSET + SP--, (PC + 2) >> 8);
 		PC = getValue(PC);
 		break;
 
@@ -969,15 +1037,18 @@ void			Cpu::loop() {
 		// -------------- [RTS]
 	case 0x60:
 		PC = 0;
-		PC |= readRAM(SP_OFFSET + SP--);
-		PC |= (uint16_t)(readRAM(SP_OFFSET + SP--) << 8);
+		PC |= ((uint16_t)(readRAM(SP_OFFSET + ++SP))) << 8; 
+		PC |= readRAM(SP_OFFSET + ++SP);
+		break;
+
 
 		// -------------- [RTI]
 	case 0x40:
 		PC = 0;
-		PC |= readRAM(SP_OFFSET + SP--);
-		PC |= (uint16_t)(readRAM(SP_OFFSET + SP--) << 8);
-		PS = readRAM(SP_OFFSET + SP--);
+		PC |= ((uint16_t)(readRAM(SP_OFFSET + ++SP))) << 8;
+		PC |= readRAM(SP_OFFSET + ++SP);
+		PS &= 0b00110000;
+		PS |= (readRAM(SP_OFFSET + ++SP) & 0b11001111);
 		break;
 
 		
@@ -1030,9 +1101,9 @@ void			Cpu::loop() {
 
 		// -------------- [BRK] Break (affected flags: B, I)
 	case 0x00:
-		writeRAM(readRAM(SP_OFFSET + SP++), PS);
-		writeRAM(readRAM(SP_OFFSET + SP++), PC & 0x0F);
-		writeRAM(readRAM(SP_OFFSET + SP++), PC >> 8);
+		writeRAM(SP_OFFSET + SP--, (PS | 0b00110000));
+		writeRAM(SP_OFFSET + SP--, PC & 0x0F);
+		writeRAM(SP_OFFSET + SP--, PC >> 8);
 		SET_B_FLAG;
 		SET_I_FLAG;
 		break;
