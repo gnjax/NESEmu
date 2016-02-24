@@ -260,6 +260,7 @@ void			Ppu::cycle(int cpuCycle) {
 			}
 			else if (this->actualPixel < 321) { //Fetching data for next scanline sprites
 				this->oamAddr = 0;
+				this->ram[OAMADDR] = 0;
 			}
 			else if (this->actualPixel < 337) { //Fetching 2 tiles for the next scanline
 				this->tileFetch();
