@@ -41,13 +41,13 @@ class Cpu {
 	char			X;
 	char			Y;
 	char			PS;
-	char			SP;
+	unsigned char	SP;
 	uint16_t		PC;
 
 	uint16_t		getValue(uint16_t addr);
 	void			VC_FlagHandler(unsigned char ans, unsigned char val);
 	void			ZNV_FlagHandler(char ans, char val);
-	void			ZN_FlagHandler(char val);
+	void			ZN_FlagHandler(unsigned char val);
 
 	void			CMP(unsigned char regVal, unsigned char opVal);
 	unsigned char	readRAM(uint16_t addr);
