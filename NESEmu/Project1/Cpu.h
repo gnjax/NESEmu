@@ -45,6 +45,7 @@ class Cpu {
 	uint16_t		PC;
 
 	uint16_t		getValue(uint16_t addr, bool wrapZeroPage = false);
+	uint16_t		getValuePageWrapped(uint16_t addr);
 	void			VC_FlagHandler(unsigned char ans, unsigned char val);
 	void			ZNV_FlagHandler(char ans, char val);
 	void			ZN_FlagHandler(unsigned char val);
