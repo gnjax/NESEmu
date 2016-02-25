@@ -44,14 +44,14 @@ class Cpu {
 	unsigned char	SP;
 	uint16_t		PC;
 
-	uint16_t		getValue(uint16_t addr);
+	uint16_t		getValue(uint16_t addr, bool wrapZeroPage = false);
 	void			VC_FlagHandler(unsigned char ans, unsigned char val);
 	void			ZNV_FlagHandler(char ans, char val);
 	void			ZN_FlagHandler(unsigned char val);
 
 	void			CMP(unsigned char regVal, unsigned char opVal);
-	unsigned char	readRAM(uint16_t addr);
-	void			writeRAM(uint16_t addr, unsigned char val);
+	unsigned char	readRAM(uint16_t addr, bool wrapZeroPage = false);
+	void			writeRAM(uint16_t addr, unsigned char val, bool wrapZeroPage = false);
 public:
 	Cpu(Nes* nes, Ppu* ppu, Joypad* joypad);
 	~Cpu();
