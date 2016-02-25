@@ -129,7 +129,6 @@ void			Cpu::loop(char *strLog) {
 	bool cFlag;
 
 	++PC;
-
 	char strExec[1024];
 	char useless[42];
 	static HANDLE  hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -184,7 +183,6 @@ void			Cpu::loop(char *strLog) {
 		break;
 	case 0xA1:	// indexed indirect X
 		A = readRAM(getValue(readRAM(PC) + X, true));
-		printf("Address : %X\n", readRAM(0x0));
 		++PC;
 		ZN_FlagHandler(A);
 		break;
@@ -434,23 +432,22 @@ void			Cpu::loop(char *strLog) {
 		// -------------- [INC] Increment Memory (affected flags: N, Z)
 	case 0xE6:	// absolute zero page
 		writeRAM(readRAM(PC), readRAM(readRAM(PC)) + 1, true);
-		printf("caca:%X\n", (unsigned char)readRAM(0x78));
-		ZN_FlagHandler(readRAM(readRAM(PC), true) + 1);
+		ZN_FlagHandler(readRAM(readRAM(PC), true));
 		++PC;
 		break;
 	case 0xF6:	// indexed zero page X
 		writeRAM(readRAM(PC) + X, readRAM(readRAM(PC) + X) + 1, true);
-		ZN_FlagHandler(readRAM(readRAM(PC) + X, true) + 1);
+		ZN_FlagHandler(readRAM(readRAM(PC) + X, true));
 		++PC;
 		break;
 	case 0xEE:	// absolute
 		writeRAM(getValue(PC), readRAM(getValue(PC)) + 1);
-		ZN_FlagHandler(readRAM(getValue(PC)) + 1);
+		ZN_FlagHandler(readRAM(getValue(PC)));
 		PC += 2;
 		break;
 	case 0xFE:	// absolute indexed X
 		writeRAM(getValue(PC) + X, readRAM(getValue(PC) + X) + 1);
-		ZN_FlagHandler(readRAM(getValue(PC) + X) + 1);
+		ZN_FlagHandler(readRAM(getValue(PC) + X));
 		PC += 2;
 		break;
 
@@ -470,22 +467,22 @@ void			Cpu::loop(char *strLog) {
 		// -------------- [DEC] Decrement Source (affected flags: N, Z)
 	case 0xC6:	// absolute zero page
 		writeRAM(readRAM(PC), readRAM(readRAM(PC)) - 1, true);
-		ZN_FlagHandler(readRAM(readRAM(PC), true) + 1);
+		ZN_FlagHandler(readRAM(readRAM(PC), true));
 		++PC;
 		break;
 	case 0xD6:	// indexed zero page X
 		writeRAM(readRAM(PC) + X, readRAM(readRAM(PC) + X) - 1, true);
-		ZN_FlagHandler(readRAM(readRAM(PC) + X, true) + 1);
+		ZN_FlagHandler(readRAM(readRAM(PC) + X, true));
 		++PC;
 		break;
 	case 0xCE:	// absolute
 		writeRAM(getValue(PC), readRAM(getValue(PC)) - 1);
-		ZN_FlagHandler(readRAM(getValue(PC)) + 1);
+		ZN_FlagHandler(readRAM(getValue(PC)));
 		PC += 2;
 		break;
 	case 0xDE:	// absolute indexed X
 		writeRAM(getValue(PC) + X, readRAM(getValue(PC) + X) + 1);
-		ZN_FlagHandler(readRAM(getValue(PC) + X) + 1);
+		ZN_FlagHandler(readRAM(getValue(PC) + X));
 		PC += 2;
 		break;
 
