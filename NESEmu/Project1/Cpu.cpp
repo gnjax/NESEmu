@@ -1098,8 +1098,48 @@ void			Cpu::loop(char *strLog) {
 		/* ============================ Other Instructions ======================================== */
 
 		// -------------- [NOP] No Opération
+	case 0x1A:
+	case 0x3A:
+	case 0x5A:
+	case 0x7A:
+	case 0xDA:
+	case 0xFA: // ^ Unofficial NOP
 	case 0xEA:
 		break;		
+
+		// -------------- [DOP] Double Nop (unofficial)
+	case 0x04:
+	case 0x44:
+	case 0x64: // ^ 3 cycles, Zero Page
+		readRAM(readRAM(PC));
+		++PC;
+		break;
+	case 0x14:
+	case 0x34:
+	case 0x54:
+	case 0x74:
+	case 0xD4:
+	case 0xF4: // ^ 4 cylces, Zero Page X
+		readRAM(readRAM(PC));
+		readRAM(readRAM(PC) + (unsigned char)X, true);
+		++PC;
+		break;
+
+		// -------------- [TOP] Triple Nop (unofficial)
+	case 0x0C: // 4 cycles, Absolute
+		readRAM(getValue(PC));
+		PC += 2;
+		break;
+	case 0x1C:
+	case 0x3C:
+	case 0x5C:
+	case 0x7C:
+	case 0xDC:
+	case 0xFC: // ^ 4 or 5 cycles, Absolute Indexed X
+
+		readRAM(getValue(PC) + X);
+		PC += 2;
+		break;
 
 		// -------------- [BRK] Break (affected flags: B, I)
 	case 0x00:
