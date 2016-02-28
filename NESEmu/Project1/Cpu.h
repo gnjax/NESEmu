@@ -31,6 +31,8 @@
 #define	UNSET_V_FLAG	(this->PS &= 0b10111111)
 #define	UNSET_N_FLAG	(this->PS &= 0b01111111)
 
+#define BND_CHK(x, y)	((x & 0xFF00) != ((y + x) & 0xFF00))
+
 #define	SP_OFFSET		(0x0100)
 
 class Cpu {

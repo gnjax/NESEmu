@@ -5,6 +5,7 @@ Nes::Nes() {
 	memset(this->ram, 0, 0x10000);
 	this->vram = new char[0x8000]();
 	memset(this->vram, 0, 0x8000);
+	//this->ram[PPUSTATUS] = 0xBF;
 }
 
 Nes::~Nes() {

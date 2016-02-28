@@ -1,4 +1,5 @@
 #include "Ppu.h"
+#include <Windows.h>
 
 Ppu::Ppu(char* vram, char* ram, char *output, bool mirroring) {
 	for (int i = 0; i < VRAMSIZE; ++i) {
@@ -21,17 +22,19 @@ Ppu::Ppu(char* vram, char* ram, char *output, bool mirroring) {
 	}
 	this->vram = vram;
 	this->ram = ram;
-	this->oam = new char[0xFF]();
+	this->oam = new unsigned char[0xFF]();
+	this->secondaryOam = new unsigned char[64]();
 	this->screenMatrix = new char[HRESOLUTION * VRESOLUTION]();
 	this->actualPixel = 0;
-	this->actualScanline = 0;
-	this->evenFrame = true;
+	this->actualScanline = 242;
+	this->evenFrame = false;
 	this->registers.currentAddress = NT0INDEX;
 	this->registers.temporaryAddress = NT0INDEX;
 	this->registers.writeToggle = false;
 	this->oamAddr = 0;
 	this->output = output;
 	this->frameRendered = false;
+	this->initialization = true;
 }
 
 Ppu::~Ppu() {
@@ -47,6 +50,7 @@ void			Ppu::PpuMaskWrite() { //write to PPUMASK
 
 void			Ppu::PpuStatusRead() { //read to PPUSTATUS
 	this->registers.writeToggle = false;
+	this->setVBlank(false);
 }
 
 void			Ppu::PpuOamAddressWrite() { //write to OAMADDR
@@ -175,18 +179,35 @@ inline void		Ppu::OamDmaWrite() {
 }
 
 inline void		Ppu::render() {
-	char color = 0;
-	if (this->getShowBackground())
+	char			color = 0;
+	char			spriteColor = 0;
+	unsigned char	attribute;
+	//if (this->getShowBackground())
 		color = ((this->registers.lowPlaneShift >> this->registers.fineXScroll) & 0x0001) | \
 		(((this->registers.highPlaneShift >> this->registers.fineXScroll) & 0x0001) << 1) | \
 		(((this->registers.lowPaletteShift >> this->registers.fineXScroll) & 0x0001) << 2) | \
 		(((this->registers.highPaletteShift >> this->registers.fineXScroll) & 0x0001) << 3);
+	for (int i = 0; i < 8; ++i) {
+		if (this->registers.spritesX[i] > 0)
+			this->registers.spritesX[i]--;
+		else {
+			if (((this->registers.spritesLowPlaneShift[i] & 0x0001) | (this->registers.spritesHighPlaneShift[i] & 0x0001) << 1) != 0) {
+				spriteColor = (this->registers.spritesLowPlaneShift[i] & 0x0001) | (this->registers.spritesHighPlaneShift[i] & 0x0001) << 1;
+				attribute = this->registers.spritesAttributes[i];
+			}
+			this->registers.spritesHighPlaneShift[i] >>= 1;
+			this->registers.spritesLowPlaneShift[i] >>= 1;
+		}
+	}
+	if (spriteColor != 0)
+		color = spriteColor;
 	int	screenOffset = (this->actualPixel - 1) ? (this->actualScanline * (this->actualPixel - 1)) : (this->actualScanline);
 	this->screenMatrix[screenOffset] = this->vram[this->vramMirrors[IPINDEX + color]];
 	this->registers.lowPlaneShift >>= 1;
 	this->registers.highPlaneShift >>= 1;
 	this->registers.lowPaletteShift >>= 1;
 	this->registers.highPaletteShift >>= 1;
+	
 }
 
 inline void		Ppu::loadIntoShiftRegisters() {
@@ -208,6 +229,22 @@ inline void		Ppu::tileFetch() {
 		this->currentTile.attributeTable = this->vram[this->vramMirrors[ATTRBYTEFETCH(this->registers.currentAddress)]];
 	else if ((this->actualPixel % 2) == 0)
 		this->currentTile.nameTable = this->vram[this->vramMirrors[NTBYTEFETCH(this->registers.currentAddress)]];
+}
+
+inline void		Ppu::spriteFetch() {
+	if ((this->actualPixel % 8) == 0) {
+		if (this->secondaryOam[this->spritesRegistersCounter * 4] != 0xFF) {
+			this->registers.spritesAttributes[this->spritesRegistersCounter] = this->secondaryOam[(this->spritesRegistersCounter * 4) + 2];
+			this->registers.spritesX[this->spritesRegistersCounter] = this->secondaryOam[(this->spritesRegistersCounter * 4) + 3];
+			int	address = this->getSpritePatternTableIndex() + (this->secondaryOam[(this->spritesRegistersCounter * 4) + 1] << 4) + (this->actualScanline - this->secondaryOam[this->spritesRegistersCounter * 4]);
+			this->registers.spritesLowPlaneShift[this->spritesRegistersCounter] = this->vram[address];
+			this->registers.spritesHighPlaneShift[this->spritesRegistersCounter] = this->vram[address + 8];
+		}
+		this->spritesRegistersCounter++;
+	}
+	/*else if ((this->actualPixel % 6) == 0) {
+
+	}*/
 }
 
 inline void		Ppu::addressWrap() {
@@ -242,16 +279,46 @@ bool			Ppu::isFrameRendered() {
 	return (this->frameRendered);
 }
 
+int				Ppu::getCycle() {
+	return (this->actualPixel);
+}
+
+int				Ppu::getScanline() {
+	return (this->actualScanline - 1);
+}
+
 void			Ppu::cycle(int cpuCycle) {
 	this->frameRendered = false;
-	for (int i = 0; i < 3; ++i) {
+	for (int i = 0; i < cpuCycle * 3; ++i) {
 		if (this->actualScanline == 0) { //Pre-render scanline
+			if (this->actualPixel == 1)
+				this->setVBlank(false);
 			if (this->actualPixel >= 321 && this->actualPixel < 337)
 				this->tileFetch();
+			this->initialization = false;
 		}
 		else if (this->actualScanline < 241) { //Render the 240 visible scanlines
+			if (this->actualPixel == 257) { //Should be done between 64 and 256, but meh again
+				int		secondaryOamOffset = 0;
+				this->spritesRegistersCounter = 0;
+				for (int i = 0; i < 256; i += 4) {
+					if (this->oam[i] >= this->actualScanline && this->oam[i] <= (this->actualScanline + 7)) {
+						if (secondaryOamOffset < 64) {
+							for (int j = 0; j < 4; ++j) {
+								this->secondaryOam[secondaryOamOffset + j] = this->oam[i + j];
+							}
+							secondaryOamOffset += 4;
+						}
+						else {
+							//overflow
+						}
+					}
+				}
+			}
 			if (this->actualPixel == 0) { // Idle cycle
-				;//NOTHING TO DO HERE
+				for (int i = 0; i < 64; ++i) { // Wrong but meh. secondaryOam should be cleaned from cycles 1-64
+					this->secondaryOam[i] = 0xFF;
+				}
 			}
 			else if (this->actualPixel < 257) { //Fetching data for each tile
 				this->tileFetch();
@@ -261,6 +328,7 @@ void			Ppu::cycle(int cpuCycle) {
 			else if (this->actualPixel < 321) { //Fetching data for next scanline sprites
 				this->oamAddr = 0;
 				this->ram[OAMADDR] = 0;
+				this->spriteFetch();
 			}
 			else if (this->actualPixel < 337) { //Fetching 2 tiles for the next scanline
 				this->tileFetch();
@@ -271,14 +339,14 @@ void			Ppu::cycle(int cpuCycle) {
 		}
 	
 		if (this->actualScanline == 242 && this->actualPixel == 1) //VBLANK HIT
-			if (this->getVBlankInterrupt())
+			if (!this->initialization)
 				this->setVBlank(true);
 		this->actualPixel++;
 		if (this->actualPixel == CYCLESPERSCANLINE) { //End of the scanline
 			this->actualPixel = 0;
 			this->actualScanline++;
 			if (this->actualScanline == 1 && !this->evenFrame) {
-				this->actualPixel = 1; //Skip idle cycle on scanline 1 if odd frame
+				//this->actualPixel = 1; //Skip idle cycle on scanline 1 if odd frame
 			}
 		}
 		if (this->actualScanline == SCANLINES) { //End of the frame

@@ -68,12 +68,17 @@ typedef struct s_register {
 	uint16_t			highPlaneShift;
 	uint16_t			lowPaletteShift;
 	uint16_t			highPaletteShift;
+	unsigned char		spritesX[8];
+	unsigned char		spritesLowPlaneShift[8];
+	unsigned char		spritesHighPlaneShift[8];
+	unsigned char		spritesAttributes[8];
 } t_register;
 
 class Ppu {
 	char				*vram;
 	char				*ram;
-	char				*oam;
+	unsigned char		*oam;
+	unsigned char		*secondaryOam;
 	char				*screenMatrix;
 	char				*output;
 	unsigned char		oamAddr;
@@ -85,6 +90,8 @@ class Ppu {
 	t_register			registers;
 	NESToRGBA			converter;
 	bool				frameRendered;
+	int					spritesRegistersCounter;
+	bool				initialization;
 public:
 	Ppu(char*, char*, char *, bool);
 	~Ppu();
@@ -117,8 +124,11 @@ public:
 	void		render();
 	void		loadIntoShiftRegisters();
 	void		tileFetch();
+	void		spriteFetch();
 	void		addressWrap();
-	bool isFrameRendered();
+	bool		isFrameRendered();
+	int			getCycle();
+	int getScanline();
 	void		cycle(int);
 };
 
