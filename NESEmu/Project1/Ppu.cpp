@@ -9,9 +9,9 @@ Ppu::Ppu(char* vram, char* ram, char *output, bool mirroring) {
 		else if (i < NT2INDEX)	//Mirroring of 2nd Name Table
 			this->vramMirrors[i] = i - 0x2400 + (mirroring ? 0x2400 : 0x2000);
 		else if (i < NT3INDEX)	//Mirroring of 3rd Name Table
-			this->vramMirrors[i] = i - 0x2800 + (mirroring ? 0x2000 : 0x2400);
+			this->vramMirrors[i] = i - 0x2800 + (mirroring ? 0x2000 : 0x2800);
 		else if (i < NT3INDEX + NTSIZE)	//Mirroring of 4th Name Table
-			this->vramMirrors[i] = i - 0x2C00 + 0x2400;
+			this->vramMirrors[i] = i - 0x2C00 + (mirroring ? 0x2400 : 0x2800);
 		else if (i < IPINDEX)	//Mirroring of 0x2000 to 0x2EFF (why ?)
 			this->vramMirrors[i] = 0x2000 + i - 0x3000;
 		else if (i < SPINDEX + PSIZECACA)	//Mirroring every 4 bytes to the universal background color (transparent) located at IPINDEX
@@ -88,7 +88,6 @@ void			Ppu::PpuDataWrite() { //write to PPUDATA
 
 void			Ppu::PpuDataRead() { //read to PPUDATA
 	this->ram[PPUDATA] = this->vram[this->vramMirrors[this->registers.temporaryAddress]];
-	/*printf("PPUREAD VAL : %X\n", this->vram[0x3F04]);*/
 	this->registers.temporaryAddress += this->getIncrement();
 }
 
@@ -188,11 +187,11 @@ inline void		Ppu::render() {
 	unsigned char	color = 0;
 	unsigned char	spriteColor = 0;
 	unsigned char	attribute;
-	//if (this->getShowBackground())
-		color = ((this->registers.lowPlaneShift >> this->registers.fineXScroll) & 0x0001) | \
-		(((this->registers.highPlaneShift >> this->registers.fineXScroll) & 0x0001) << 1) | \
-		(((this->registers.lowPaletteShift >> this->registers.fineXScroll) & 0x0001) << 2) | \
-		(((this->registers.highPaletteShift >> this->registers.fineXScroll) & 0x0001) << 3);
+	if (this->getShowBackground())
+		color = (((this->registers.lowPlaneShift << this->registers.fineXScroll) >> 15) & 0x0001) | \
+		((((this->registers.highPlaneShift << this->registers.fineXScroll) >> 15) & 0x0001) << 1) | \
+		((((this->registers.lowPaletteShift << this->registers.fineXScroll) >> 15) & 0x0001) << 2) | \
+		((((this->registers.highPaletteShift << this->registers.fineXScroll) >> 15) & 0x0001) << 3);
 	for (int i = 0; i < 8; ++i) {
 		if (this->registers.spritesX[i] > 0)
 			this->registers.spritesX[i]--;
@@ -205,23 +204,23 @@ inline void		Ppu::render() {
 			this->registers.spritesLowPlaneShift[i] <<= 1;
 		}
 	}
-	/*if (spriteColor != 0)
-		color = spriteColor;*/
+	if (spriteColor != 0 && this->getShowSprite())
+		color = spriteColor;
 	int	screenOffset = ((this->actualScanline - 1) * 256) + (this->actualPixel - 1);
 	this->screenMatrix[screenOffset] = this->vram[this->vramMirrors[IPINDEX + color]];
-	this->registers.lowPlaneShift >>= 1;
-	this->registers.highPlaneShift >>= 1;
-	this->registers.lowPaletteShift >>= 1;
-	this->registers.highPaletteShift >>= 1;
+	this->registers.lowPlaneShift <<= 1;
+	this->registers.highPlaneShift <<= 1;
+	this->registers.lowPaletteShift <<= 1;
+	this->registers.highPaletteShift <<= 1;
 	
 }
 
 inline void		Ppu::loadIntoShiftRegisters() {
-	this->registers.lowPlaneShift |= (this->vram[this->currentTile.lowTile] << 8);
-	this->registers.highPlaneShift |= (this->vram[this->currentTile.highTile] << 8);
+	this->registers.lowPlaneShift |= (unsigned char)this->vram[this->currentTile.lowTile];
+	this->registers.highPlaneShift |= (unsigned char)this->vram[this->currentTile.highTile];
 	//TEMPORARY - ONLY GREY SCALE
-	this->registers.lowPaletteShift = 0;
-	this->registers.highPaletteShift = 0;
+	this->registers.lowPaletteShift |= ((unsigned char)this->currentTile.attributeTable >> ATTROFFSET((unsigned char)this->currentTile.attributeTable)) & 0x01;
+	this->registers.highPaletteShift |= ((unsigned char)this->currentTile.attributeTable >> ATTROFFSET((unsigned char)this->currentTile.attributeTable) + 1) & 0x01;
 }
 
 inline void		Ppu::tileFetch() {

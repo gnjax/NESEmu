@@ -40,7 +40,10 @@
 #define		COARSEYOVF		31
 #define		MAXFINEY		0x7000
 #define		NTBYTEFETCH(x)		(0x2000 | (x & 0x0FFF))
-#define		ATTRBYTEFETCH(x)	(0x23C0 | (x & 0x0C00) | ((x >> 4) & 0x38) | ((x >> 2) &0x07))
+#define		ATTRBYTEFETCH(x)	(0x23C0 | (x & 0x0C00) | ((x >> 4) & 0x38) | ((x >> 2) & 0x07))
+#define		ATTROFFSET(x)		(x & 0x0020 == 0x0020) ? (4 + (x & 0x0002)) : (x & 0x0002)
+//IF D1 = 1 -> right else left
+//IF D5 = 1 -> bottom else top
 
 #define		CYCLESPERSCANLINE	341
 #define		HRESOLUTION			256
