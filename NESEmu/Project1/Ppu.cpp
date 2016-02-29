@@ -1,5 +1,6 @@
 #include "Ppu.h"
 #include <Windows.h>
+#include <fstream>
 
 Ppu::Ppu(char* vram, char* ram, char *output, bool mirroring) {
 	for (int i = 0; i < VRAMSIZE; ++i) {
@@ -35,9 +36,16 @@ Ppu::Ppu(char* vram, char* ram, char *output, bool mirroring) {
 	this->output = output;
 	this->frameRendered = false;
 	this->initialization = true;
+	this->nmi = false;
 }
 
 Ppu::~Ppu() {
+}
+
+bool			Ppu::nmiOccured() {
+	bool		ret = this->nmi;
+	this->nmi = false;
+	return ret;
 }
 
 void			Ppu::PpuControlWrite() { //write to PPUCTRL
@@ -80,6 +88,7 @@ void			Ppu::PpuDataWrite() { //write to PPUDATA
 
 void			Ppu::PpuDataRead() { //read to PPUDATA
 	this->ram[PPUDATA] = this->vram[this->vramMirrors[this->registers.temporaryAddress]];
+	/*printf("PPUREAD VAL : %X\n", this->vram[0x3F04]);*/
 	this->registers.temporaryAddress += this->getIncrement();
 }
 
@@ -88,6 +97,7 @@ void			Ppu::PpuOamDmaWrite() { //write to OAMDMA
 
 	start = this->ram[OAMDMA] << 8;
 	memcpy(this->oam, this->ram + start, 0x100);
+
 }
 
 //Fetch the nametable address to use. NT from #0 to #3
@@ -173,14 +183,10 @@ inline void		Ppu::getPpuAddr() { //Get the PPUADDR register vlaue. 2 successives
 	this->registers.writeToggle = !this->registers.writeToggle;
 }
 
-//When a CPU write occurs to OAMDMA, takes 256 bytes from CPU memory from $XX00 -> $XXFF to oam memory. Takes 512 cycles
-inline void		Ppu::OamDmaWrite() {
-	memcpy(this->oam, this->ram + ((uint16_t)(this->ram[OAMDMA]) << 8), 0xFF);
-}
 
 inline void		Ppu::render() {
-	char			color = 0;
-	char			spriteColor = 0;
+	unsigned char	color = 0;
+	unsigned char	spriteColor = 0;
 	unsigned char	attribute;
 	//if (this->getShowBackground())
 		color = ((this->registers.lowPlaneShift >> this->registers.fineXScroll) & 0x0001) | \
@@ -191,17 +197,17 @@ inline void		Ppu::render() {
 		if (this->registers.spritesX[i] > 0)
 			this->registers.spritesX[i]--;
 		else {
-			if (((this->registers.spritesLowPlaneShift[i] & 0x0001) | (this->registers.spritesHighPlaneShift[i] & 0x0001) << 1) != 0) {
-				spriteColor = (this->registers.spritesLowPlaneShift[i] & 0x0001) | (this->registers.spritesHighPlaneShift[i] & 0x0001) << 1;
+			if ((((this->registers.spritesLowPlaneShift[i] >> 7) & 0x0001) | ((this->registers.spritesHighPlaneShift[i] >> 7) & 0x0001) << 1) != 0) {
+				spriteColor = ((this->registers.spritesLowPlaneShift[i] >> 7) & 0x0001) | (((this->registers.spritesHighPlaneShift[i] >> 7) & 0x0001) << 1);
 				attribute = this->registers.spritesAttributes[i];
 			}
-			this->registers.spritesHighPlaneShift[i] >>= 1;
-			this->registers.spritesLowPlaneShift[i] >>= 1;
+			this->registers.spritesHighPlaneShift[i] <<= 1;
+			this->registers.spritesLowPlaneShift[i] <<= 1;
 		}
 	}
-	if (spriteColor != 0)
-		color = spriteColor;
-	int	screenOffset = (this->actualPixel - 1) ? (this->actualScanline * (this->actualPixel - 1)) : (this->actualScanline);
+	/*if (spriteColor != 0)
+		color = spriteColor;*/
+	int	screenOffset = ((this->actualScanline - 1) * 256) + (this->actualPixel - 1);
 	this->screenMatrix[screenOffset] = this->vram[this->vramMirrors[IPINDEX + color]];
 	this->registers.lowPlaneShift >>= 1;
 	this->registers.highPlaneShift >>= 1;
@@ -226,9 +232,9 @@ inline void		Ppu::tileFetch() {
 	else if ((this->actualPixel % 6) == 0)
 		this->currentTile.lowTile = this->getBackgroundPatternTableIndex() + (this->currentTile.nameTable << 4) + ((this->registers.currentAddress & FINEYMASK) >> 12);
 	else if ((this->actualPixel % 4) == 0)
-		this->currentTile.attributeTable = this->vram[this->vramMirrors[ATTRBYTEFETCH(this->registers.currentAddress)]];
+		this->currentTile.attributeTable = this->vram[this->vramMirrors[ATTRBYTEFETCH(this->registers.currentAddress)]] & 0x00FF;
 	else if ((this->actualPixel % 2) == 0)
-		this->currentTile.nameTable = this->vram[this->vramMirrors[NTBYTEFETCH(this->registers.currentAddress)]];
+		this->currentTile.nameTable = this->vram[this->vramMirrors[NTBYTEFETCH(this->registers.currentAddress)]] & 0x00FF;
 }
 
 inline void		Ppu::spriteFetch() {
@@ -338,9 +344,12 @@ void			Ppu::cycle(int cpuCycle) {
 			}
 		}
 	
-		if (this->actualScanline == 242 && this->actualPixel == 1) //VBLANK HIT
+		if (this->actualScanline == 242 && this->actualPixel == 1) { //VBLANK HIT
 			if (!this->initialization)
 				this->setVBlank(true);
+			if (this->getVBlankInterrupt())
+				this->nmi = true;
+		}
 		this->actualPixel++;
 		if (this->actualPixel == CYCLESPERSCANLINE) { //End of the scanline
 			this->actualPixel = 0;

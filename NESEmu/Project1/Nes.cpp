@@ -1,4 +1,5 @@
 #include "Nes.h"
+#include <cstdio>
 
 Nes::Nes() {
 	this->ram = new char[0x10000]();
@@ -22,5 +23,9 @@ char*	Nes::getCpuMemory() {
 }
 
 uint16_t	Nes::getResetAddress() {
-	return ((this->ram[0xFFFD] << 8) | this->ram[0xFFFC]);
+	return (((unsigned char)this->ram[0xFFFD] << 8) | (unsigned char)this->ram[0xFFFC]);
+}
+
+uint16_t	Nes::getNMIRoutine() {
+	return (((unsigned char)this->ram[0xFFFB] << 8) | (unsigned char)this->ram[0xFFFA]);
 }

@@ -92,9 +92,11 @@ class Ppu {
 	bool				frameRendered;
 	int					spritesRegistersCounter;
 	bool				initialization;
+	bool				nmi;
 public:
 	Ppu(char*, char*, char *, bool);
 	~Ppu();
+	bool		nmiOccured();
 	void		PpuControlWrite();
 	void		PpuMaskWrite();
 	void		PpuStatusRead();
@@ -120,7 +122,6 @@ public:
 	void		setVBlank(bool);
 	void		getPpuScroll();
 	void		getPpuAddr();
-	void		OamDmaWrite();
 	void		render();
 	void		loadIntoShiftRegisters();
 	void		tileFetch();
@@ -128,7 +129,7 @@ public:
 	void		addressWrap();
 	bool		isFrameRendered();
 	int			getCycle();
-	int getScanline();
+	int			getScanline();
 	void		cycle(int);
 };
 

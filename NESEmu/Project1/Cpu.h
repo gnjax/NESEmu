@@ -55,6 +55,7 @@ class Cpu {
 	void			CMP(unsigned char regVal, unsigned char opVal);
 	unsigned char	readRAM(uint16_t addr, bool wrapZeroPage = false);
 	void			writeRAM(uint16_t addr, unsigned char val, bool wrapZeroPage = false);
+	void nmiRoutine();
 public:
 	Cpu(Nes* nes, Ppu* ppu, Joypad* joypad);
 	~Cpu();

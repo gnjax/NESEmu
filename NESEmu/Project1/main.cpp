@@ -36,7 +36,7 @@ int		main() {
 		return 1; // exit if file not found
 
 				  // read each line of the file
-	while (!fin.eof())
+	/*while (!fin.eof())
 	{
 		char buf[1024];
 		char tmp[1024];
@@ -64,12 +64,22 @@ int		main() {
 		token[8] = strtok_s(NULL, " ", &context);
 		sprintf_s(tmp, "%s %s\t\tA:%s X:%s Y:%s P:%s SP:%s CYC:%s SL:%s", token[0], token[1], token[2], token[3], token[4], token[5], token[6], token[7], token[8]);
 		cpu.loop(tmp);
-	}
-	
-	/*while (42) {
-		cpu.loop(NULL);
-		if (ppu.isFrameRendered())
-			drawer->update(test2);
 	}*/
+	int caca = 0;
+	while (42) {
+		cpu.loop(NULL);
+		if (ppu.isFrameRendered()) {
+			drawer->update(test2);
+			++caca;
+			Sleep(50);
+			printf("%d\n", caca);
+			if (caca == 50) {
+				std::ofstream myfile("C:\\Qt\\caca.ppu");
+				for (int i = 0; i < 0x4000; ++i)
+					myfile << nes.getPpuMemory()[i];
+				myfile.close();
+			}
+		}
+	}
 	return (0);
 }

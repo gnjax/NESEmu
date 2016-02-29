@@ -136,6 +136,7 @@ bool	Rom::initialize(std::string s) {
 void	Rom::loadIntoMemory(char *ram, char *vram) {
 	memcpy(ram + 0x8000, this->rom + PGR_OFFSET, PGR_SIZE);
 	memcpy(ram + 0xC000, this->rom + PGR_OFFSET + ((this->pgrPage > 1) ? (PGR_SIZE) : (0)), PGR_SIZE);
-	if (this->chrPage > 1)
+	
+	if (this->chrPage >= 1)
 		memcpy(vram, this->rom + PGR_OFFSET + (PGR_SIZE * this->pgrPage), CHR_SIZE);
 }

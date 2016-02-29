@@ -122,10 +122,18 @@ void			Cpu::writeRAM(uint16_t addr, unsigned char val, bool wrapZeroPage) {
 		break;
 	case OAMDMA:
 		this->ppu->PpuOamDmaWrite();
+		this->ppu->cycle(513);
 		break;
 	default:
 		break;
 	}
+}
+
+void			Cpu::nmiRoutine() {
+	writeRAM(SP_OFFSET + SP--, (PC) >> 8);
+	writeRAM(SP_OFFSET + SP--, (PC) & 0xFF);
+	writeRAM(SP_OFFSET + SP--, PS);
+	PC = nes->getNMIRoutine();
 }
 
 void			Cpu::loop(char *strLog) {
@@ -144,7 +152,7 @@ void			Cpu::loop(char *strLog) {
 		SP = 0xF6;
 	}
 	++PC;
-	char strExec[1024];
+	/*char strExec[1024];
 	char useless[42];
 	static HANDLE  hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 	
@@ -158,7 +166,7 @@ void			Cpu::loop(char *strLog) {
 		std::cin >> useless;
 	}
 	else
-		printf("%s\n", strExec);
+		printf("%s\n", strExec);*/
 		//printf("%X	%X is executed  A:%X X:%X Y:%X P:%X SP:%X\n", this->PC - 1, (unsigned char)this->nes->getCpuMemory()[this->PC - 1], (unsigned char)A, (unsigned char)X, (unsigned char)Y, (unsigned char)PS, (unsigned char)SP);
 		// Sleep(1000);
 	
@@ -235,10 +243,11 @@ void			Cpu::loop(char *strLog) {
 		cycles = 3;
 		break;
 	case 0xB6:	// indexed zero page Y
-		X = readRAM(readRAM(PC) + (unsigned char)Y, true);
+		tmp16 = readRAM(PC);
+		X = readRAM(tmp16 + (unsigned char)Y, true);
 		++PC;
 		ZN_FlagHandler(X);
-		cycles = 4;
+		cycles = (BND_CHK(tmp16, (unsigned char)Y)) ? (5) : (4);
 		break;
 	case 0xAE:	// absolute
 		X = readRAM(getValue(PC));
@@ -247,10 +256,11 @@ void			Cpu::loop(char *strLog) {
 		cycles = 4;
 		break;
 	case 0xBE:	// absolute indexed Y
-		X = readRAM(getValue(PC) + (unsigned char)Y);
+		tmp16 = getValue(PC);
+		X = readRAM(tmp16 + (unsigned char)Y);
 		PC += 2;
 		ZN_FlagHandler(X);
-		cycles = 4;
+		cycles = (BND_CHK(tmp16, (unsigned char)Y)) ? (5) : (4);
 		break;
 
 		// -------------- [LDY] Load Register Y (affected flags: N, Z)
@@ -263,14 +273,15 @@ void			Cpu::loop(char *strLog) {
 	case 0xA4:	// absolute zero page
 		Y = readRAM(readRAM(PC), true);
 		++PC;
-		ZN_FlagHandler(X);
+		ZN_FlagHandler(Y);
 		cycles = 3;
 		break;
 	case 0xB4:	// indexed zero page X
-		Y = readRAM(readRAM(PC) + (unsigned char)X, true);
+		tmp16 = readRAM(PC);
+		Y = readRAM(tmp16 + (unsigned char)X, true);
 		++PC;
 		ZN_FlagHandler(Y);
-		cycles = 4;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (5) : (4);
 		break;
 	case 0xAC:	// absolute
 		Y = readRAM(getValue(PC));
@@ -279,10 +290,11 @@ void			Cpu::loop(char *strLog) {
 		cycles = 4;
 		break;
 	case 0xBC:	// absolute indexed X
-		Y = readRAM(getValue(PC) + (unsigned char)X);
+		tmp16 = getValue(PC);
+		Y = readRAM(tmp16 + (unsigned char)X);
 		PC += 2;
 		ZN_FlagHandler(Y);
-		cycles = 4;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (5) : (4);
 		break;
 
 
@@ -293,9 +305,10 @@ void			Cpu::loop(char *strLog) {
 		cycles = 3;
 		break;
 	case 0x95:	// indexed zero page X
-		writeRAM(readRAM(PC) + (unsigned char)X, A, true);
+		tmp16 = readRAM(PC);
+		writeRAM(tmp16 + (unsigned char)X, A, true);
 		++PC;
-		cycles = 4;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (5) : (4);
 		break;
 	case 0x8D:	// absolute
 		writeRAM(getValue(PC), A);
@@ -303,24 +316,28 @@ void			Cpu::loop(char *strLog) {
 		cycles = 4;
 		break;
 	case 0x9D:	// absolute indexed X
-		writeRAM(getValue(PC) + (unsigned char)X, A);
+		tmp16 = getValue(PC);
+		writeRAM(tmp16 + (unsigned char)X, A);
 		PC += 2;
-		cycles = 5;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (6) : (5);
 		break;
 	case 0x99:	// absolute indexed Y
-		writeRAM(getValue(PC) + (unsigned char)Y, A);
+		tmp16 = getValue(PC);
+		writeRAM(tmp16 + (unsigned char)Y, A);
 		PC += 2;
-		cycles = 5;
+		cycles = (BND_CHK(tmp16, (unsigned char)Y)) ? (6) : (5);
 		break;
 	case 0x81:	// indexed indirect X
-		writeRAM(getValue(readRAM(PC) + (unsigned char)X, true), A);
+		tmp16 = readRAM(PC);
+		writeRAM(getValue(tmp16 + (unsigned char)X, true), A);
 		++PC;
-		cycles = 6;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (7) : (6);
 		break;
 	case 0x91:	// indirect indexed Y
-		writeRAM(getValue(readRAM(PC), true) + (unsigned char)Y, A);
+		tmp16 = getValue(readRAM(PC), true);
+		writeRAM(tmp16 + (unsigned char)Y, A);
 		++PC;
-		cycles = 6;
+		cycles = (BND_CHK(tmp16, (unsigned char)Y)) ? (7) : (6);
 		break;
 
 		// -------------- [STX] Store X Register
@@ -330,9 +347,10 @@ void			Cpu::loop(char *strLog) {
 		cycles = 3;
 		break;
 	case 0x96:	// indexed zero page Y
-		writeRAM(readRAM(PC) + (unsigned char)Y, X, true);
+		tmp16 = readRAM(PC);
+		writeRAM(tmp16 + (unsigned char)Y, X, true);
 		++PC;
-		cycles = 4;
+		cycles = (BND_CHK(tmp16, (unsigned char)Y)) ? (5) : (4);
 		break;
 	case 0x8E:	// absolute
 		writeRAM(getValue(PC), X);
@@ -347,9 +365,10 @@ void			Cpu::loop(char *strLog) {
 		cycles = 3;
 		break;
 	case 0x94:	// indexed zero page X
-		writeRAM(readRAM(PC) + (unsigned char)X, Y, true);
+		tmp16 = readRAM(PC);
+		writeRAM(tmp16 + (unsigned char)X, Y, true);
 		++PC;
-		cycles = 4;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (5) : (4);
 		break;
 	case 0x8C:	// absolute
 		writeRAM(getValue(PC), Y);
@@ -379,12 +398,13 @@ void			Cpu::loop(char *strLog) {
 		cycles = 3;
 		break;
 	case 0x75:	// indexed zero page X
-		tmp = readRAM(readRAM(PC) + (unsigned char)X, true);
+		tmp16 = readRAM(PC);
+		tmp = readRAM(tmp16 + (unsigned char)X, true);
 		A += tmp + C_FLAG;
 		VC_FlagHandler(ans, tmp);
 		++PC;
 		ZN_FlagHandler(A);
-		cycles = 4;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (5) : (4);
 		break;
 	case 0x6D:	// absolute
 		tmp = readRAM(getValue(PC));
@@ -395,36 +415,40 @@ void			Cpu::loop(char *strLog) {
 		cycles = 4;
 		break;
 	case 0x7D:	// absolute indexed X
-		tmp = readRAM(getValue(PC) + (unsigned char)X);
+		tmp16 = getValue(PC);
+		tmp = readRAM(tmp16 + (unsigned char)X);
 		A += tmp + C_FLAG;
 		VC_FlagHandler(ans, tmp);
 		PC += 2;
 		ZN_FlagHandler(A);
-		cycles = 4;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (5) : (4);
 		break;
 	case 0x79:	// absolute indexed Y
-		tmp = readRAM(getValue(PC) + (unsigned char)Y);
+		tmp16 = getValue(PC);
+		tmp = readRAM(tmp16 + (unsigned char)Y);
 		A += tmp + C_FLAG;
 		VC_FlagHandler(ans, tmp);
 		PC += 2;
 		ZN_FlagHandler(A);
-		cycles = 4;
+		cycles = (BND_CHK(tmp16, (unsigned char)Y)) ? (5) : (4);
 		break;
 	case 0x61:	// indexed indirect X
-		tmp = readRAM(getValue(readRAM(PC) + (unsigned char)X, true));
+		tmp16 = readRAM(PC);
+		tmp = readRAM(getValue(tmp16 + (unsigned char)X, true));
 		A += tmp + C_FLAG;
 		VC_FlagHandler(ans, tmp);
 		++PC;
 		ZN_FlagHandler(A);
-		cycles = 6;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (7) : (6);
 		break;
 	case 0x71:	// indirect indexed Y
-		tmp = readRAM(getValue(readRAM(PC), true) + (unsigned char)Y);
+		tmp16 = getValue(readRAM(PC), true);
+		tmp = readRAM(tmp16 + (unsigned char)Y);
 		A += tmp + C_FLAG;
 		VC_FlagHandler(ans, tmp);
 		++PC;
 		ZN_FlagHandler(A);
-		cycles = 5;
+		cycles = (BND_CHK(tmp16, (unsigned char)Y)) ? (6) : (5);
 		break;
 
 		// -------------- [SBC] Sub with Carry (affected flags : N, Z, C, V)
@@ -446,12 +470,13 @@ void			Cpu::loop(char *strLog) {
 		cycles = 3;
 		break;
 	case 0xF5:	// indexed zero page X
-		tmp = readRAM(readRAM(PC) + (unsigned char)X, true) ^ 0xFF;
+		tmp16 = readRAM(PC);
+		tmp = readRAM(tmp16 + (unsigned char)X, true) ^ 0xFF;
 		A += tmp + C_FLAG;
 		VC_FlagHandler(ans, tmp);
 		++PC;
 		ZN_FlagHandler(A);
-		cycles = 4;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (5) : (4);
 		break;
 	case 0xED:	// absolute
 		tmp = readRAM(getValue(PC)) ^ 0xFF;
@@ -462,36 +487,40 @@ void			Cpu::loop(char *strLog) {
 		cycles = 4;
 		break;
 	case 0xFD:	// absolute indexed X
-		tmp = readRAM(getValue(PC) + (unsigned char)X) ^ 0xFF;
+		tmp16 = getValue(PC);
+		tmp = readRAM(tmp16 + (unsigned char)X) ^ 0xFF;
 		A += tmp + C_FLAG;
 		VC_FlagHandler(ans, tmp);
 		PC += 2;
 		ZN_FlagHandler(A);
-		cycles = 4;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (5) : (4);
 		break;
 	case 0xF9:	// absolute indexed Y
-		tmp = readRAM(getValue(PC) + (unsigned char)Y) ^ 0xFF;
+		tmp16 = getValue(PC);
+		tmp = readRAM(tmp16 + (unsigned char)Y) ^ 0xFF;
 		A += tmp + C_FLAG;
 		VC_FlagHandler(ans, tmp);
 		PC += 2;
 		ZN_FlagHandler(A);
-		cycles = 4;
+		cycles = (BND_CHK(tmp16, (unsigned char)Y)) ? (5) : (4);
 		break;
 	case 0xE1:	// indexed indirect X
-		tmp = readRAM(getValue(readRAM(PC) + (unsigned char)X, true)) ^ 0xFF;
+		tmp16 = readRAM(PC);
+		tmp = readRAM(getValue(tmp16 + (unsigned char)X, true)) ^ 0xFF;
 		A += tmp + C_FLAG;
 		VC_FlagHandler(ans, tmp);
 		++PC;
 		ZN_FlagHandler(A);
-		cycles = 6;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (7) : (6);
 		break;
 	case 0xF1:	// indirect indexed Y
-		tmp = readRAM(getValue(readRAM(PC), true) + (unsigned char)Y) ^ 0xFF;
+		tmp16 = getValue(readRAM(PC), true);
+		tmp = readRAM(tmp16 + (unsigned char)Y) ^ 0xFF;
 		A += tmp + C_FLAG;
 		VC_FlagHandler(ans, tmp);
 		++PC;
 		ZN_FlagHandler(A);
-		cycles = 5;
+		cycles = (BND_CHK(tmp16, (unsigned char)Y)) ? (6) : (5);
 		break;
 
 		
@@ -500,30 +529,34 @@ void			Cpu::loop(char *strLog) {
 		
 		// -------------- [INC] Increment Memory (affected flags: N, Z)
 	case 0xE6:	// absolute zero page
-		writeRAM(readRAM(PC), readRAM(readRAM(PC)) + 1, true);
-		ZN_FlagHandler(readRAM(readRAM(PC), true));
+		tmp = readRAM(readRAM(PC), true);
+		writeRAM(readRAM(PC), tmp + 1, true);
+		ZN_FlagHandler(tmp + 1);
 		++PC;
 		cycles = 5;
 		break;
 	case 0xF6:	// indexed zero page X
-		writeRAM(readRAM(PC) + (unsigned char)X, readRAM(readRAM(PC) + (unsigned char)X) + 1, true);
-		ZN_FlagHandler(readRAM(readRAM(PC) + (unsigned char)X, true));
+		tmp = readRAM(readRAM(PC) + (unsigned char)X, true);
+		tmp16 = readRAM(PC);
+		writeRAM(tmp16 + (unsigned char)X, tmp + 1, true);
+		ZN_FlagHandler(tmp + 1);
 		++PC;
-		cycles = 6;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (7) : (6);
 		break;
 	case 0xEE:	// absolute
 		tmp = readRAM(getValue(PC));
 		writeRAM(getValue(PC), tmp + 1);
-		ZN_FlagHandler(tmp);
+		ZN_FlagHandler(tmp + 1);
 		PC += 2;
 		cycles = 6;
 		break;
 	case 0xFE:	// absolute indexed X
+		tmp16 = getValue(PC);
 		tmp = readRAM(getValue(PC) + (unsigned char)X);
-		writeRAM(getValue(PC) + (unsigned char)X, tmp + 1);
-		ZN_FlagHandler(tmp);
+		writeRAM(tmp16 + (unsigned char)X, tmp + 1);
+		ZN_FlagHandler(tmp + 1);
 		PC += 2;
-		cycles = 7;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (8) : (7);
 		break;
 
 		// -------------- [INX] Increment X (affected flags: N, Z)
@@ -543,30 +576,34 @@ void			Cpu::loop(char *strLog) {
 
 		// -------------- [DEC] Decrement Source (affected flags: N, Z)
 	case 0xC6:	// absolute zero page
-		writeRAM(readRAM(PC), readRAM(readRAM(PC)) - 1, true);
-		ZN_FlagHandler(readRAM(readRAM(PC), true));
+		tmp = readRAM(readRAM(PC), true);
+		writeRAM(readRAM(PC), tmp - 1, true);
+		ZN_FlagHandler(tmp - 1);
 		++PC;
 		cycles = 5;
 		break;
 	case 0xD6:	// indexed zero page X
-		writeRAM(readRAM(PC) + (unsigned char)X, readRAM(readRAM(PC) + (unsigned char)X) - 1, true);
-		ZN_FlagHandler(readRAM(readRAM(PC) + (unsigned char)X, true));
+		tmp16 = readRAM(PC);
+		tmp = readRAM(readRAM(PC) + (unsigned char)X, true);
+		writeRAM(tmp16 + (unsigned char)X, tmp - 1, true);
+		ZN_FlagHandler(tmp - 1);
 		++PC;
-		cycles = 6;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (7) : (6);
 		break;
 	case 0xCE:	// absolute
 		tmp = readRAM(getValue(PC));
 		writeRAM(getValue(PC), tmp - 1);
-		ZN_FlagHandler(tmp);
+		ZN_FlagHandler(tmp - 1);
 		PC += 2;
 		cycles = 6;
 		break;
 	case 0xDE:	// absolute indexed X
+		tmp16 = getValue(PC);
 		tmp = readRAM(getValue(PC) + (unsigned char)X);
-		writeRAM(getValue(PC) + (unsigned char)X, tmp - 1);
-		ZN_FlagHandler(tmp);
+		writeRAM(tmp16 + (unsigned char)X, tmp - 1);
+		ZN_FlagHandler(tmp - 1);
 		PC += 2;
-		cycles = 7;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (8) : (7);
 		break;
 
 		// -------------- [DEX] Decrement X (affected flags: N, Z)
@@ -601,10 +638,11 @@ void			Cpu::loop(char *strLog) {
 		cycles = 3;
 		break;
 	case 0x35:	// indexed zero page X
-		A &= readRAM(readRAM(PC) + (unsigned char)X, true);
+		tmp16 = readRAM(PC);
+		A &= readRAM(tmp16 + (unsigned char)X, true);
 		++PC;
 		ZN_FlagHandler(A);
-		cycles = 4;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (5) : (4);
 		break;
 	case 0x2D:	// absolute
 		A &= readRAM(getValue(PC));
@@ -613,28 +651,32 @@ void			Cpu::loop(char *strLog) {
 		cycles = 4;
 		break;
 	case 0x3D:	// absolute indexed X
-		A &= readRAM(getValue(PC) + (unsigned char)X);
+		tmp16 = getValue(PC);
+		A &= readRAM(tmp16 + (unsigned char)X);
 		PC += 2;
 		ZN_FlagHandler(A);
-		cycles = 4;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (5) : (4);
 		break;
 	case 0x39:	// absolute indexed Y
-		A &= readRAM(getValue(PC) + (unsigned char)Y);
+		tmp16 = getValue(PC);
+		A &= readRAM(tmp16 + (unsigned char)Y);
 		PC += 2;
 		ZN_FlagHandler(A);
-		cycles = 4;
+		cycles = (BND_CHK(tmp16, (unsigned char)Y)) ? (5) : (4);
 		break;
 	case 0x21:	// indexed indirect X
-		A &= readRAM(getValue(readRAM(PC) + (unsigned char)X, true));
+		tmp16 = readRAM(PC);
+		A &= readRAM(getValue(tmp16 + (unsigned char)X, true));
 		++PC;
 		ZN_FlagHandler(A);
-		cycles = 6;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (7) : (6);
 		break;
 	case 0x31:	// indirect indexed Y
-		A &= readRAM(getValue(readRAM(PC), true) + (unsigned char)Y);
+		tmp16 = getValue(readRAM(PC), true);
+		A &= readRAM(tmp16 + (unsigned char)Y);
 		++PC;
 		ZN_FlagHandler(A);
-		cycles = 5;
+		cycles = (BND_CHK(tmp16, (unsigned char)Y)) ? (6) : (5);
 		break;
 
 		// -------------- [ORA] Logical Inclusive OR (affected flags : N, Z)
@@ -651,10 +693,11 @@ void			Cpu::loop(char *strLog) {
 		cycles = 3;
 		break;
 	case 0x15:	// indexed zero page X
-		A |= readRAM(readRAM(PC) + (unsigned char)X, true);
+		tmp16 = readRAM(PC);
+		A |= readRAM(tmp16 + (unsigned char)X, true);
 		++PC;
 		ZN_FlagHandler(A);
-		cycles = 4;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (5) : (4);
 		break;
 	case 0x0D:	// absolute
 		A |= readRAM(getValue(PC));
@@ -663,28 +706,32 @@ void			Cpu::loop(char *strLog) {
 		cycles = 4;
 		break;
 	case 0x1D:	// absolute indexed X
-		A |= readRAM(getValue(PC) + (unsigned char)X);
+		tmp16 = getValue(PC);
+		A |= readRAM(tmp16 + (unsigned char)X);
 		PC += 2;
 		ZN_FlagHandler(A);
-		cycles = 4;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (5) : (4);
 		break;
 	case 0x19:	// absolute indexed Y
-		A |= readRAM(getValue(PC) + (unsigned char)Y);
+		tmp16 = getValue(PC);
+		A |= readRAM(tmp16 + (unsigned char)Y);
 		PC += 2;
 		ZN_FlagHandler(A);
-		cycles = 4;
+		cycles = (BND_CHK(tmp16, (unsigned char)Y)) ? (5) : (4);
 		break;
 	case 0x01:	// indexed indirect X
-		A |= readRAM(getValue(readRAM(PC) + (unsigned char)X, true));
+		tmp16 = readRAM(PC);
+		A |= readRAM(getValue(tmp16 + (unsigned char)X, true));
 		++PC;
 		ZN_FlagHandler(A);
-		cycles = 6;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (7) : (6);
 		break;
 	case 0x11:	// indirect indexed Y
-		A |= readRAM(getValue(readRAM(PC), true) + (unsigned char)Y);
+		tmp16 = getValue(readRAM(PC), true);
+		A |= readRAM(tmp16 + (unsigned char)Y);
 		++PC;
 		ZN_FlagHandler(A);
-		cycles = 5;
+		cycles = (BND_CHK(tmp16, (unsigned char)Y)) ? (6) : (5);
 		break;
 
 		// -------------- [EOR] Exclusive-OR (affected flags : N, Z)
@@ -701,10 +748,11 @@ void			Cpu::loop(char *strLog) {
 		cycles = 3;
 		break;
 	case 0x55:	// indexed zero page X
-		A ^= readRAM(readRAM(PC) + (unsigned char)X, true);
+		tmp16 = readRAM(PC);
+		A ^= readRAM(tmp16 + (unsigned char)X, true);
 		++PC;
 		ZN_FlagHandler(A);
-		cycles = 4;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (5) : (4);
 		break;
 	case 0x4D:	// absolute
 		A ^= readRAM(getValue(PC));
@@ -713,28 +761,32 @@ void			Cpu::loop(char *strLog) {
 		cycles = 4;
 		break;
 	case 0x5D:	// absolute indexed X
-		A ^= readRAM(getValue(PC) + (unsigned char)X);
+		tmp16 = getValue(PC);
+		A ^= readRAM(tmp16 + (unsigned char)X);
 		PC += 2;
 		ZN_FlagHandler(A);
-		cycles = 4;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (5) : (4);
 		break;
 	case 0x59:	// absolute indexed Y
-		A ^= readRAM(getValue(PC) + (unsigned char)Y);
+		tmp16 = getValue(PC);
+		A ^= readRAM(tmp16 + (unsigned char)Y);
 		PC += 2;
 		ZN_FlagHandler(A);
-		cycles = 4;
+		cycles = (BND_CHK(tmp16, (unsigned char)Y)) ? (5) : (4);
 		break;
 	case 0x41:	// indexed indirect X
-		A ^= readRAM(getValue(readRAM(PC) + (unsigned char)X, true));
+		tmp16 = readRAM(PC);
+		A ^= readRAM(getValue(tmp16 + (unsigned char)X, true));
 		++PC;
 		ZN_FlagHandler(A);
-		cycles = 6;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (7) : (6);
 		break;
 	case 0x51:	// indirect indexed Y
-		A ^= readRAM(getValue(readRAM(PC), true) + (unsigned char)Y);
+		tmp16 = getValue(readRAM(PC), true);
+		A ^= readRAM(tmp16 + (unsigned char)Y);
 		++PC;
 		ZN_FlagHandler(A);
-		cycles = 5;
+		cycles = (BND_CHK(tmp16, (unsigned char)Y)) ? (6) : (5);
 		break;
 
 		
@@ -845,9 +897,10 @@ void			Cpu::loop(char *strLog) {
 		cycles = 3;
 		break;
 	case 0xD5:	// indexed zero page X
-		CMP(A, readRAM(readRAM(PC) + (unsigned char)X, true));
+		tmp16 = readRAM(PC);
+		CMP(A, readRAM(tmp16 + (unsigned char)X, true));
 		++PC;
-		cycles = 4;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (5) : (4);
 		break;
 	case 0xCD:	// absolute
 		CMP(A, readRAM(getValue(PC)));
@@ -855,24 +908,28 @@ void			Cpu::loop(char *strLog) {
 		cycles = 4;
 		break;
 	case 0xDD:	// absolute indexed X
-		CMP(A, readRAM(getValue(PC) + (unsigned char)X));
+		tmp16 = getValue(PC);
+		CMP(A, readRAM(tmp16 + (unsigned char)X));
 		PC += 2;
-		cycles = 4;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (5) : (4);
 		break;
 	case 0xD9:	// absolute indexed Y
-		CMP(A, readRAM(getValue(PC) + (unsigned char)Y));
+		tmp16 = getValue(PC);
+		CMP(A, readRAM(tmp16 + (unsigned char)Y));
 		PC += 2;
-		cycles = 4;
+		cycles = (BND_CHK(tmp16, (unsigned char)Y)) ? (5) : (4);
 		break;
 	case 0xC1:	// indexed indirect X
-		CMP(A, readRAM(getValue(readRAM(PC) + (unsigned char)X, true)));
+		tmp16 = readRAM(PC);
+		CMP(A, readRAM(getValue(tmp16 + (unsigned char)X, true)));
 		++PC;
-		cycles = 6;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (7) : (6);
 		break;
 	case 0xD1:	// indirect indexed Y
-		CMP(A, readRAM(getValue(readRAM(PC), true) + (unsigned char)Y));
+		tmp16 = getValue(readRAM(PC), true);
+		CMP(A, readRAM(tmp16 + (unsigned char)Y));
 		++PC;
-		cycles = 5;
+		cycles = (BND_CHK(tmp16, (unsigned char)Y)) ? (6) : (5);
 		break;
 
 		// -------------- [CPX] Compare Memory And X (affected flags: N, Z, C)
@@ -950,13 +1007,14 @@ void			Cpu::loop(char *strLog) {
 		cycles = 5;
 		break;
 	case 0x16:	// indexed zero page X
+		tmp16 = readRAM(PC);
 		tmp = readRAM(readRAM(PC) + (unsigned char)X, true);
 		PS &= 0b11111110;
 		PS |= (unsigned char)tmp >> 7;
-		writeRAM(readRAM(PC) + (unsigned char)X, (unsigned char)tmp << 1);
+		writeRAM(tmp16 + (unsigned char)X, (unsigned char)tmp << 1);
 		ZN_FlagHandler((unsigned char)tmp << 1);
 		++PC;
-		cycles = 6;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (7) : (6);
 		break;
 	case 0x0E:	// absolute
 		tmp = readRAM(getValue(PC));
@@ -968,13 +1026,14 @@ void			Cpu::loop(char *strLog) {
 		cycles = 6;
 		break;
 	case 0x1E:	// absolute indexed X
+		tmp16 = getValue(PC);
 		tmp = readRAM(getValue(PC) + (unsigned char)X);
 		PS &= 0b11111110;
 		PS |= (unsigned char)tmp >> 7;
-		writeRAM(getValue(PC) + (unsigned char)X, (unsigned char)tmp << 1);
+		writeRAM(tmp16 + (unsigned char)X, (unsigned char)tmp << 1);
 		ZN_FlagHandler((unsigned char)tmp << 1);
 		PC += 2;
-		cycles = 7;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (8) : (7);
 		break;
 
 		// -------------- [LSR] Logical Shift Right (affected flags : N, C, Z)
@@ -995,13 +1054,14 @@ void			Cpu::loop(char *strLog) {
 		cycles = 5;
 		break;
 	case 0x56:	// indexed zero page X
+		tmp16 = readRAM(PC);
 		tmp = readRAM(readRAM(PC) + (unsigned char)X, true);
 		PS &= 0b11111110;	// set C_FLAG
 		PS |= (tmp & 0x1);
-		writeRAM(readRAM(PC) + (unsigned char)X, (unsigned char)tmp >> 1);
+		writeRAM(tmp16 + (unsigned char)X, (unsigned char)tmp >> 1);
 		ZN_FlagHandler((unsigned char)tmp >> 1);
 		++PC;
-		cycles = 6;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (7) : (6);
 		break;
 	case 0x4E:	// absolute
 		tmp = readRAM(getValue(PC));
@@ -1013,13 +1073,14 @@ void			Cpu::loop(char *strLog) {
 		cycles = 6;
 		break;
 	case 0x5E:	// absolute indexed X
+		tmp16 = getValue(PC);
 		tmp = readRAM(getValue(PC) + (unsigned char)X);
 		PS &= 0b11111110;	// set C_FLAG
 		PS |= (tmp & 0x1);
-		writeRAM(getValue(PC) + (unsigned char)X, (unsigned char)tmp >> 1);
+		writeRAM(tmp16 + (unsigned char)X, (unsigned char)tmp >> 1);
 		ZN_FlagHandler((unsigned char)tmp >> 1);
 		PC += 2;
-		cycles = 7;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (8) : (7);
 		break;
 
 		// -------------- [ROL] Rotate Left (affected flags : N, C, Z)
@@ -1042,14 +1103,15 @@ void			Cpu::loop(char *strLog) {
 		cycles = 5;
 		break;
 	case 0x36:	// indexed zero page X
+		tmp16 = readRAM(PC);
 		ans = PS & 0x1;
 		tmp = readRAM(readRAM(PC) + (unsigned char)X, true);
 		PS &= 0b11111110;
 		PS |= (unsigned char)tmp >> 7;
-		writeRAM(readRAM(PC) + (unsigned char)X, ((unsigned char)tmp << 1) | ans);
+		writeRAM(tmp16 + (unsigned char)X, ((unsigned char)tmp << 1) | ans);
 		ZN_FlagHandler(((unsigned char)tmp << 1) | ans);
 		++PC;
-		cycles = 6;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (7) : (6);
 		break;
 	case 0x2E:	// absolute
 		ans = PS & 0x1;
@@ -1062,14 +1124,15 @@ void			Cpu::loop(char *strLog) {
 		cycles = 6;
 		break;
 	case 0x3E:	// absolute indexed X
+		tmp16 = getValue(PC);
 		ans = PS & 0x1;
 		tmp = readRAM(getValue(PC) + (unsigned char)X);
 		PS &= 0b11111110;
 		PS |= (unsigned char)tmp >> 7;
-		writeRAM(getValue(PC) + (unsigned char)X, ((unsigned char)tmp << 1) | ans);
+		writeRAM(tmp16 + (unsigned char)X, ((unsigned char)tmp << 1) | ans);
 		ZN_FlagHandler(((unsigned char)tmp << 1) | ans);
 		PC += 2;
-		cycles = 7;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (8) : (7);
 		break;
 
 		// -------------- [ROR] Rotate Right (affected flags : N, C, Z)
@@ -1092,14 +1155,15 @@ void			Cpu::loop(char *strLog) {
 		cycles = 5;
 		break;
 	case 0x76:	// indexed zero page X
+		tmp16 = readRAM(PC);
 		ans = (PS & 0x1) << 7;
 		tmp = readRAM(readRAM(PC) + (unsigned char)X, true);
 		PS &= 0b11111110;	// set C_FLAG
 		PS |= (tmp & 0x1);
-		writeRAM(readRAM(PC) + (unsigned char)X, ((unsigned char)tmp >> 1) | (unsigned char)ans);
+		writeRAM(tmp16 + (unsigned char)X, ((unsigned char)tmp >> 1) | (unsigned char)ans);
 		ZN_FlagHandler(((unsigned char)tmp >> 1) | (unsigned char)ans);
 		++PC;
-		cycles = 6;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (7) : (6);
 		break;
 	case 0x6E:	// absolute
 		ans = (PS & 0x1) << 7;
@@ -1112,14 +1176,15 @@ void			Cpu::loop(char *strLog) {
 		cycles = 6;
 		break;
 	case 0x7E:	// absolute indexed X
+		tmp16 = getValue(PC);
 		ans = (PS & 0x1) << 7;
 		tmp = readRAM(getValue(PC) + (unsigned char)X);
 		PS &= 0b11111110;	// set C_FLAG
 		PS |= (tmp & 0x1);
-		writeRAM(getValue(PC) + (unsigned char)X, ((unsigned char)tmp >> 1) | (unsigned char)ans);
+		writeRAM(tmp16 + (unsigned char)X, ((unsigned char)tmp >> 1) | (unsigned char)ans);
 		ZN_FlagHandler(((unsigned char)tmp >> 1) | (unsigned char)ans);
 		PC += 2;
-		cycles = 7;
+		cycles = (BND_CHK(tmp16, (unsigned char)X)) ? (8) : (7);
 		break;
 
 		
@@ -1479,6 +1544,9 @@ void			Cpu::loop(char *strLog) {
 		Error::getInstance()->queue(error);
 		break;
 	}
-
 	this->ppu->cycle(cycles);
+	if (ppu->nmiOccured()) {
+		this->nmiRoutine();
+		this->ppu->cycle(7);
+	}
 }

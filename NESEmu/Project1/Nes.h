@@ -20,6 +20,7 @@ public:
 	~Nes();
 	char*	getCpuMemory();
 	uint16_t	getResetAddress();
+	uint16_t	getNMIRoutine();
 	char*	getPpuMemory();
 };
 
