@@ -187,27 +187,30 @@ inline void		Ppu::render() {
 	unsigned char	color = 0;
 	unsigned char	spriteColor = 0;
 	unsigned char	attribute;
-	if (this->getShowBackground())
+	if (this->getShowBackground()) {
 		color = (((this->registers.lowPlaneShift << this->registers.fineXScroll) >> 15) & 0x0001) | \
-		((((this->registers.highPlaneShift << this->registers.fineXScroll) >> 15) & 0x0001) << 1) | \
-		((((this->registers.lowPaletteShift << this->registers.fineXScroll) >> 15) & 0x0001) << 2) | \
-		((((this->registers.highPaletteShift << this->registers.fineXScroll) >> 15) & 0x0001) << 3);
+			((((this->registers.highPlaneShift << this->registers.fineXScroll) >> 15) & 0x0001) << 1) | \
+			((((this->registers.lowPaletteShift << this->registers.fineXScroll) >> 15) & 0x0001) << 2) | \
+			((((this->registers.highPaletteShift << this->registers.fineXScroll) >> 15) & 0x0001) << 3);
+	}
 	for (int i = 0; i < 8; ++i) {
 		if (this->registers.spritesX[i] > 0)
 			this->registers.spritesX[i]--;
 		else {
-			if ((((this->registers.spritesLowPlaneShift[i] >> 7) & 0x0001) | ((this->registers.spritesHighPlaneShift[i] >> 7) & 0x0001) << 1) != 0) {
-				spriteColor = ((this->registers.spritesLowPlaneShift[i] >> 7) & 0x0001) | (((this->registers.spritesHighPlaneShift[i] >> 7) & 0x0001) << 1);
+			if (((this->registers.spritesLowPlaneShift[i] >> 7) & 0x0001) | ((this->registers.spritesHighPlaneShift[i] >> 6) & 0x0002) != 0) {
+				spriteColor = ((this->registers.spritesLowPlaneShift[i] >> 7) & 0x0001) | ((this->registers.spritesHighPlaneShift[i] >> 6) & 0x0002);
 				attribute = this->registers.spritesAttributes[i];
 			}
 			this->registers.spritesHighPlaneShift[i] <<= 1;
 			this->registers.spritesLowPlaneShift[i] <<= 1;
 		}
 	}
-	if (spriteColor != 0 && this->getShowSprite())
-		color = spriteColor;
 	int	screenOffset = ((this->actualScanline - 1) * 256) + (this->actualPixel - 1);
-	this->screenMatrix[screenOffset] = this->vram[this->vramMirrors[IPINDEX + color]];
+	if (spriteColor != 0 && this->getShowSprite())
+		this->screenMatrix[screenOffset] = this->vram[this->vramMirrors[spriteColor + SPINDEX]];
+	else
+		this->screenMatrix[screenOffset] = this->vram[this->vramMirrors[color + IPINDEX]];
+	
 	this->registers.lowPlaneShift <<= 1;
 	this->registers.highPlaneShift <<= 1;
 	this->registers.lowPaletteShift <<= 1;
@@ -225,7 +228,7 @@ inline void		Ppu::loadIntoShiftRegisters() {
 
 inline void		Ppu::tileFetch() {
 	if ((this->actualPixel % 8) == 0) {
-		this->currentTile.highTile = this->currentTile.lowTile + 0x8;
+		this->currentTile.highTile = this->currentTile.lowTile + 0x08;
 		this->loadIntoShiftRegisters();
 	}
 	else if ((this->actualPixel % 6) == 0)
@@ -241,7 +244,7 @@ inline void		Ppu::spriteFetch() {
 		if (this->secondaryOam[this->spritesRegistersCounter * 4] != 0xFF) {
 			this->registers.spritesAttributes[this->spritesRegistersCounter] = this->secondaryOam[(this->spritesRegistersCounter * 4) + 2];
 			this->registers.spritesX[this->spritesRegistersCounter] = this->secondaryOam[(this->spritesRegistersCounter * 4) + 3];
-			int	address = this->getSpritePatternTableIndex() + (this->secondaryOam[(this->spritesRegistersCounter * 4) + 1] << 4) + (this->actualScanline - this->secondaryOam[this->spritesRegistersCounter * 4]);
+			int	address = this->getSpritePatternTableIndex() + (this->secondaryOam[(this->spritesRegistersCounter * 4) + 1] << 4) + (this->actualScanline - 1 - this->secondaryOam[this->spritesRegistersCounter * 4]);
 			this->registers.spritesLowPlaneShift[this->spritesRegistersCounter] = this->vram[address];
 			this->registers.spritesHighPlaneShift[this->spritesRegistersCounter] = this->vram[address + 8];
 		}
